@@ -1,0 +1,165 @@
+{
+@standard lib
+:in{ $\80 }
+:out{ $\81 }
+:alloc{ $\82 }
+:get{ $\83 }
+:set{ $\84 }
+:ord{ $\85 }
+:charat{ $\86 }
+:sfind{ $\87 }
+:assert(a){ ?a{ $N } !0 }
+
+@ all lines below use assert() to test operations
+
+@ logical ops
+assert(1)
+assert(-1)
+assert(~0)
+assert(~~~0)
+assert(0=0)
+assert(1=1)
+assert((~-1)=0)
+assert(~(0=1))
+assert(~(1=0))
+assert(0=0)
+assert(~(0&0))
+assert(~(0&1))
+assert(~(1&0))
+assert(1&1)
+assert(~(0|0))
+assert(0|1)
+assert(1|0)
+assert(1|1)
+
+@ numbers
+assert(100=100)
+assert(~(-69=69))
+assert(-45=(45*-1))
+assert(+34)
+
+@ boolean globals
+assert(T)
+assert(~F)
+assert(~T=F)
+assert(T=~F)
+assert(~(T=F))
+assert(T=T)
+assert(F=F)
+
+@ comparison ops
+assert(1>0)
+assert(~(0>1))
+assert(~(1<0))
+assert(0<1)
+
+@ math ops
+assert(1+1=2)
+assert(2-1=1)
+assert(2*2=4)
+assert(4/2=2)
+assert(5%2=1)
+
+@ variable ops
+:a:0
+:b:1
+assert(a=0)
+assert(~(a=1))
+assert(~(b=0))
+assert(b=1)
+
+@ control statements
+?0{ assert(0) }:{ assert(1) }
+?1{ assert(1) }:{ assert(0) }
+?0{
+ assert(0)
+}:?0{
+ assert(0)
+}:?1{
+ assert(1)
+}:{
+ assert(0)
+}
+?0{
+ assert(0)
+}:?0{
+ assert(0)
+}:?0{
+ assert(0)
+}:{
+ assert(1)
+}
+
+@ functions
+:c{ $1 }
+:d{ $0 }
+:D(){ $d() }
+:e(a){ $a|10 }
+:g{ assert(1) $1 }
+assert(c())
+assert(~d())
+assert(e(c())=11)
+assert(g())
+
+@ try/catch
+?{
+ ?{
+  !55
+  assert(0)
+ }:{
+  :ef:ERR
+ }
+ assert(ef=55)
+}:{
+ assert(0)
+}
+assert(ef=55)
+
+@ looping
+:i:0
+?i<9{
+ :i:i+1
+ out(i)
+}^
+
+@ strings
+:test_str:"a test string"
+out("hello")
+out("world")
+
+@ bytes
+:some_bytes:alloc(1)
+out(set(some_bytes,0,69))
+out(get(some_bytes,0)) @ print first entry in bytes
+
+@ utilities
+:_ascii_map:" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~?"
+:char(x){ $charat(_ascii_map,x-20) }
+:digit(x){ $charat(_ascii_map,x+10) }
+:itos(x){
+ :s:""
+ ?x=0{ $"0" }
+ ?x{
+  :s:digit(x%+a)+s
+  :x:x/+a
+ }^
+ $s
+}
+
+assert(char(7e)="~")
+assert(sfind("abc","a")=0)
+assert(sfind("abc","b")=1)
+assert(sfind("abc","c")=2)
+assert(sfind("abc","d")=-1)
+assert(digit(0)="0")
+assert(digit(1)="1")
+assert(digit(9)="9")
+assert(itos(+2aaa)="10922")
+assert(itos(0)="0")
+
+@ TODO:
+@ - escape/break ;
+@ - add array type: ee.0 ee.0
+@ - add string type
+@ - main use case through python file: c = run('code goes here', a, b)
+}

@@ -1,0 +1,136 @@
+{
+@reads code from stdin, writes vmcode to stdout
+
+@standard lib
+:in{ $\80 }
+:out{ $\81 }
+:alloc{ $\82 }
+:get{ $\83 }
+:set{ $\84 }
+:ord{ $\85 }
+:charat{ $\86 }
+:sfind{ $\87 }
+:assert(a){ ?a{ $N } !0 }
+:_ascii_map:" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~?"
+:char(x){ $charat(_ascii_map,x-20) }
+:digit(x){ $charat(_ascii_map,x+10) }
+:itos(x){
+ :s:""
+ ?x=0{ $"0" }
+ ?x{
+  :s:digit(x%+a)+s
+  :x:x/+a
+ }^
+ $s
+}
+
+@Vector
+:Vector_v(vec){ $get(vec,0) }
+:Vector_n(vec){ $get(vec,1) }
+:Vector_capacity(vec){ $get(vec,2) }
+:Vector_get(vec,i){
+ $get(get(vec,0),i)
+}
+:Vector_set(vec,i,x){
+ $set(get(vec,0),i,x)
+}
+:Vector_append(vec,x){
+ :v:get(vec,0)
+ :n:get(vec,1)
+ set(vec,1,n+1)
+ $set(v,n,x)
+}
+:Vector_output_chars(vec){
+ :i:0
+ :v:get(vec,0)
+ :n:get(vec,1)
+ ?i<n{
+  out(get(v,i))
+  :i:i+1
+ }^
+ $vec
+}
+:Vector_init(vec,capacity){
+ set(vec,0,alloc(capacity))
+ set(vec,1,0)
+ set(vec,2,capacity)
+ $vec
+}
+:Vector(capacity){
+ $Vector_init(alloc(3),capacity)
+}
+@Compiler
+:Compiler_vmcode(comp){ $get(comp,0) }
+:Compiler_debug(comp){ $get(comp,1) }
+:Compiler_words(comp){ $get(comp,2) }
+:Compiler_vs(comp){ $get(comp,3) }
+:Compiler_throw_syntax_err(code,i){
+ @TODO * add len() find() join()
+ @error_idx = len(code) - e.remaining_code_chars
+ @line_num = code[:error_idx].count("\n") + 1
+ @line_start = code[:error_idx].rfind("\n") + 1
+ @line = code[line_start:line_start+code[line_start:].find("\n")]
+ !"Syntax error on line "+itos(0)
+}
+:Compiler_parse_char(code,i,c){
+ Compiler_throw_syntax_err(code,i)
+ @TODO *add join() in() 
+ @if code[0] not in chars:
+ @ raise _SyntaxError(
+ @   len(code), "Expected {!r} got {!r}".format(chars, code[0]))
+ $i+1
+}
+:Compiler_c_statement(comp,code,i){
+ $i
+}
+:Compiler_c_code_block(comp,code,i){
+ :i:Compiler_parse_char(code,i,"{")
+ ?~(get(code,i)=7d){
+  :i:Compiler_c_statement(comp,code,i)
+ }^
+ $i+1
+}
+:Compiler_compile(comp,code){
+ :vmcode:Compiler_vmcode(comp)
+ :i:0
+ ?{
+  :i:Compiler_c_code_block(comp,code,i)
+ }:{
+  @this should be a syntax error
+ }
+ $comp
+}
+:Compiler_output_chars(comp){
+ Vector_output_chars(Compiler_vmcode(comp))
+ $comp
+}
+:Compiler_init_words(words){
+ Vector_append(words,"NIL")
+ Vector_append(words,"ERR")
+ Vector_append(words,"F")
+ Vector_append(words,"T")
+ $words
+}
+:Compiler_init_vs(vs){
+ :vars:Vector(100)
+ Vector_append(vars,0)
+ Vector_append(vars,1)
+ Vector_append(vars,2)
+ Vector_append(vs,vars)
+ $vs
+}
+:Compiler_init(comp){
+ set(comp,0,Vector(+ffff))
+ set(comp,1,T)
+ set(comp,2,Compiler_init_words(Vector(4)))
+ set(comp,3,Compiler_init_vs(Vector(1)))
+ $comp
+}
+:Compiler{
+ $Compiler_init(alloc(4))
+}
+:comp:Compiler()
+Compiler_compile(comp,in())
+Compiler_output_chars(comp)
+out("done")
+}
