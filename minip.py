@@ -51,7 +51,7 @@ class Compiler(object):
     def __init__(self, debug=False):
         self.vm_code = []
         self.debug = debug
-        self.words = ["N", "ERR", "F", "T"]
+        self.words = ["NIL", "ERR", "F", "T"]
         self.vs = [list(range(len(self.words)))]
 
     def compile(self, code):
@@ -209,6 +209,10 @@ class Compiler(object):
             while code[n] != '"':
                 if code[n] == '\\':
                     n += 1
+                    if self._is_digit(code[n]):
+                        text += chr(int(code[n:n+2], 16))
+                        n += 2
+                        continue
                 text += code[n]
                 n += 1
             self._write_vm_op_w_int(VM_LODS, len(text))
@@ -469,7 +473,7 @@ class VM(object):
             return ip
         # REMINDER: write ip to fs[-1] before executing subroutine in func v
         def _in(exec_bytes, ip):
-            os.append(sys.stdin.read().encode('ascii'))
+            os.append(sys.stdin.read())
             return ip
         def _out(exec_bytes, ip):
             value = os[-1]
@@ -490,15 +494,22 @@ class VM(object):
             a[unsigned16(i)] = x
             return ip
         def _str_ord(exec_bytes, ip):
-            os.append(ord(os.pop()))
+            os[-1] = ord(os[-1])
             return ip
         def _str_charat(exec_bytes, ip):
-            i, a = os.pop(), os.pop()
-            os.append(a[unsigned16(i)])
+            i, s = os.pop(), os.pop()
+            os.append(s[unsigned16(i)])
             return ip
         def _str_find(exec_bytes, ip):
-            x, a = os.pop(), os.pop()
-            os.append(a.find(x))
+            x, i, s = os.pop(), os.pop(), os.pop()
+            os.append(s.find(x, i))
+            return ip
+        def _str_len(exec_bytes, ip):
+            os[-1] = len(os[-1])
+            return ip
+        def _str_sub(exec_bytes, ip):
+            j, i, s = os.pop(), os.pop(), os.pop()
+            os.append(s[i:j])
             return ip
         self.ops = [_nop] * 256
         self.ops[ord('i')] = _load_int
@@ -536,6 +547,8 @@ class VM(object):
         self.ops[0x85] = _str_ord
         self.ops[0x86] = _str_charat
         self.ops[0x87] = _str_find
+        self.ops[0x88] = _str_len
+        self.ops[0x89] = _str_sub        
         
 # Example usage:
 # do_something = DoitFunction(open("do_something.doit"))

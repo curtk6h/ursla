@@ -8,7 +8,7 @@
 :ord{ $\85 }
 :charat{ $\86 }
 :sfind{ $\87 }
-:assert(a){ ?a{ $N } !0 }
+:assert(a){ ?a{ $NIL } !0 }
 
 @ all lines below use assert() to test operations
 
@@ -133,9 +133,9 @@ out(set(some_bytes,0,69))
 out(get(some_bytes,0)) @ print first entry in bytes
 
 @ utilities
-:_ascii_map:" !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~?"
-:char(x){ $charat(_ascii_map,x-20) }
-:digit(x){ $charat(_ascii_map,x+10) }
+:_ascii_map:"\00\01\02\03\04\05\06\07\08\09\0a\0b\0c\0d\0e\0f\10\11\12\13\14\15\16\17\18\19\1a\1b\1c\1d\1e\1f !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~?"
+:char(x){ $charat(_ascii_map,x) }
+:digit(x){ $charat(_ascii_map,x+30) }
 :itos(x){
  :s:""
  ?x=0{ $"0" }
