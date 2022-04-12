@@ -1,23 +1,37 @@
 {
 @there's only one way to do most ops
 @instead of a<=b it's ~(a>b)
+@Implement conversion functions:
+@itoc,itos
+@stoi
+@ctoi
+@int8,int16,int32
+@uint8,uint16,uint32
+@pack8,pack16
+@unpack8,unpack16
+@sum,concat(agg funcs. stop allowing + for str)
+@:concat(*args){args} @ stores vars in args variable
 
 @reads code from stdin, writes vmcode to stdout
 
 @standard lib
 :in{ $\80 }
 :out{ $\81 }
-:alloc{ $\82 }
-:get{ $\83 }
-:set{ $\84 }
-:ord{ $\85 }
-:charat{ $\86 }
-:sfind{ $\87 }
-:slen{ $\88 }
-:substr{ $\89 }
-:_ascii_map:"\00\01\02\03\04\05\06\07\08\09\0a\0b\0c\0d\0e\0f\10\11\12\13\14\15\16\17\18\19\1a\1b\1c\1d\1e\1f !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~?"
-:char(x){ $charat(_ascii_map,x) }
-:digit(x){ $charat(_ascii_map,x+30) }
+:array{ $\82 }
+:alen{ $\83 }
+:get{ $\84 }
+:set{ $\85 }
+:str{ $\86 }
+:slen{ $\87 }
+:sget{ $\88 }
+:sset{ $\89 }
+:byte{ $\8a }
+:char(x){ $\8b }
+:sfirst{ $\8c }
+:substr{ $\8d }
+:shl{ $\8e }
+:shr{ $\8f }
+:digit(x){ $sget(_ascii_map,x+30) }
 :itos(x){
  :s:""
  ?x=0{ $"0" }
@@ -30,27 +44,67 @@
 :scount(s,i,j,x){
  :n:0
  ?i<j{
-  ?charat(s,i)=x{
+  ?sget(s,i)=x{
    :n:n+1
   }
   :i:i+1
  }^
  $n
 }
-:srfind(s,i,j,x){
- ?(~(i<j))&(~(charat(s,i)=x)){
-  :i:i-1
+:slast(s,i,j,x){
+ ?j>i{
+  ?sget(s,j)=x{
+   $j
+  }
+  :j:j-1
  }^
- $i
+ $-1
 }
-:pad(s,x,n){
+:lpad(s,x,n){
  ?n>0{
   :s:x+s
   :n:n-1
  }^
  $s
 }
-:NL:"\0a"
+:afirst(a,x){
+ :i:0
+ :j:alen(a)
+ ?i<j{
+  ?get(a,i)=x{
+   $i
+  }
+  :i:i+1
+ }
+ $-1
+}
+:map(a,f){
+ :i:0
+ :j:alen(a)
+ ?i<j{
+  set(a,i,f(get(a,i)))
+  :i:i+1
+ }
+ $a
+}
+:is_digit(c){
+ :x:ord(c)
+ $((x>2f)&(x<3a))
+}
+:is_hex_digit(c){
+ :x:ord(c)
+ $((x>2f)&(x<3a))|((x>60)&(x<67))
+}
+:is_alpha(c){
+ :x:ord(c)
+ $((x>40)&(x<5b))|((x>60)&(x<79))
+}
+:is_word(c){
+ :x:ord(c)
+ $((x>40)&(x<5b))|((x>60)&(x<79))|((x>2f)&(x<3a))|(x=5f)
+}
+
+:NL:char(0a)
 
 @Vector
 :Vector_v(vec){ $get(vec,0) }
@@ -80,51 +134,96 @@
  $vec
 }
 :Vector_init(vec,capacity){
- set(vec,0,alloc(capacity))
+ set(vec,0,array(capacity))
  set(vec,1,0)
  set(vec,2,capacity)
  $vec
 }
 :Vector(capacity){
- $Vector_init(alloc(3),capacity)
+ $Vector_init(array(3),capacity)
 }
 
 @Compiler
 :Compiler_vmcode(comp){ $get(comp,0) }
-:Compiler_debug(comp){ $get(comp,1) }
-:Compiler_words(comp){ $get(comp,2) }
-:Compiler_vs(comp){ $get(comp,3) }
-:Compiler_write_op(comp,op){
- Vector_append(Compiler_vmcode(comp),op)
+:Compiler_vmcode_idx(comp){ $get(comp,1) }
+:Compiler_set_vmcode_idx(comp,x){ $set(comp,1,x) }
+:Compiler_debug(comp){ $get(comp,2) }
+:Compiler_words(comp){ $get(comp,3) }
+:Compiler_vs(comp){ $get(comp,4) }
+:Compiler_append_op(comp,op){
+ :i:Compiler_vmcode_idx(comp)
+ sset(Compiler_vmcode(comp),i,op)
+ Compiler_set_vmcode_idx(comp,i+1)
  $comp
 }
+:Compiler_encode_byte(comp,i,x){
+ :vmcode:Compiler_vmcode(comp)
+ sset(vmcode,i+0,shr(x,+4)&+f)
+ sset(vmcode,i+1,x&+f)
+ $comp
+}
+:Compiler_encode_short(comp,i,x){
+ :vmcode:Compiler_vmcode(comp)
+ sset(vmcode,i+0,shr(x,+c)&+f)
+ sset(vmcode,i+1,shr(x,+8)&+f)
+ sset(vmcode,i+2,shr(x,+4)&+f)
+ sset(vmcode,i+3,x&+f)
+ $comp
+}
+:Compiler_append_op_w_byte(comp,op,x){
+ :i:Compiler_vmcode_idx(comp)
+ Vector_append(Compiler_vmcode(comp),op)
+ Compiler_encode_byte(comp,i,x)
+ Compiler_set_vmcode_idx(i+3)
+ $comp
+}
+:Compiler_append_op_w_short(comp,op,x){
+ :i:Compiler_vmcode_idx(comp)
+ Vector_append(Compiler_vmcode(comp),op)
+ Compiler_encode_short(comp,i,x)
+ Compiler_set_vmcode_idx(i+5)
+ $comp
+}
+:Compiler_append_op_w_addr:Compiler_append_op_w_short
 :Compiler_throw_syntax_err(code,i,msg){
  :line_num:scount(code,0,i,NL)+1
- :line_start:srfind(code,i,0,NL)+1
- :line:substr(code,line_start,sfind(code,i,NL))
- :line_arrow:pad("^"," ",i-line_start)
+ :line_start:slast(code,0,i,NL)+1
+ :line:substr(code,line_start,sfirst(code,i,NL))
+ :line_arrow:lpad("^"," ",i-line_start)
  !"Syntax error on line "+itos(line_num)+": "+msg+NL+line+NL+line_arrow
 }
 :Compiler_parse_char(code,i,chars){
- :c:charat(code,i)
- ?c="@"{
-   ?~(c=""){
-   }
- }
- ?sfind(chars,0,charat(code,i))=-1{
-  Compiler_throw_syntax_err(code,i,"Expected "+chars+" got "+charat(code,i))
+ :c:sget(code,i)
+ ?sfirst(chars,0,c)=-1{
+  Compiler_throw_syntax_err(code,i,"Expected "+chars+" got "+c)
  }
  $i+1
 }
-:Compiler_c_statement(comp,code,i){
- ?Compiler_debug(comp)&(charat(code,i)=NL){
-   Compiler_write_op(comp,NL)
+:Compiler_skip_ws(code,i){
+ ?get(code,i)=" "{
+  :i:i+1
  }
- $Compiler_parse_char(code,i,"\0a ")
+ $i
+}
+:Compiler_c_statement(comp,code,i){
+ :i:Compiler_skip_ws(code,i)
+ :c:sget(code,i)
+ ?c="@"{
+  ?~(sget(code,i)=NL){
+   :i:i+1
+  }^
+  ?Compiler_debug(comp){
+   @write out comment
+  }
+ }
+ ?Compiler_debug(comp)&(sget(code,i)=NL){
+   Compiler_append_op(comp,NL)
+ }
+ $Compiler_parse_char(code,i,NL)
 }
 :Compiler_c_code_block(comp,code,i){
  :i:Compiler_parse_char(code,i,"{")
- ?~(charat(code,i)="}"){
+ ?~(sget(code,i)="}"){
   :i:Compiler_c_statement(comp,code,i)
  }^
  $i+1
@@ -155,14 +254,15 @@
  $vs
 }
 :Compiler_init(comp){
- set(comp,0,Vector(+ffff))
- set(comp,1,T)
- set(comp,2,Compiler_init_words(Vector(4)))
- set(comp,3,Compiler_init_vs(Vector(1)))
+ set(comp,0,str(char(00),+ffff))
+ set(comp,1,0)
+ set(comp,2,T)
+ set(comp,3,Compiler_init_words(Vector(4)))
+ set(comp,4,Compiler_init_vs(Vector(1)))
  $comp
 }
 :Compiler{
- $Compiler_init(alloc(4))
+ $Compiler_init(array(4))
 }
 :comp:Compiler()
 Compiler_compile(comp,in())

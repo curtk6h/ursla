@@ -2,13 +2,40 @@
 @standard lib
 :in{ $\80 }
 :out{ $\81 }
-:alloc{ $\82 }
-:get{ $\83 }
-:set{ $\84 }
-:ord{ $\85 }
-:charat{ $\86 }
-:sfind{ $\87 }
-:assert(a){ ?a{ $NIL } !0 }
+:array{ $\82 }
+:alen{ $\83 }
+:get{ $\84 }
+:set{ $\85 }
+:str{ $\86 }
+:slen{ $\87 }
+:sget{ $\88 }
+:sset{ $\89 }
+:ord{ $\8a }
+:char{ $\8b }
+:sfirst{ $\8c }
+:substr{ $\8d }
+:match{ $\8e }
+:concat{ $\8f }
+:shl{ $\90 }
+:shr{ $\91 }
+@:itoc{ }
+@:itos{ }
+@:itof{ }
+@:ftoi{ }
+@:stoi{ }
+@:ctoi{ }
+:int8(x){ $shr(shl(x,24),24) }
+:int16(x){ $shr(shl(x,16),16) }
+:uint8(x){ $x&+ff }
+:uint16(x){ $x&+ffff }
+:pack8(a,b,c,d){ $shl(a&+ff,24)|shl(a&+ff,16)|shl(a&+ff,8)|(a&+ff) }
+:pack16(a,b,c,d){ $shl(a&+ffff,16)|(a&+ffff) }
+@:unpack8(x){ $(shr(a,24)&+ff)|(shr(a,16)&+ff)|(shr(a,8)&+ff)|(a&+ff) }
+@:unpack16(x){ $(shr(a,16)&+ffff)|(a&+ffff) }
+@sum,concat,flatten(agg funcs work on array, stop allowing + for str)
+@:concat(*args){args} @ stores vars in args variable
+
+:assert(a){ ?a{ $NIL } !"Value is not T!" }
 
 @ all lines below use assert() to test operations
 
@@ -17,12 +44,6 @@ assert(1)
 assert(-1)
 assert(~0)
 assert(~~~0)
-assert(0=0)
-assert(1=1)
-assert((~-1)=0)
-assert(~(0=1))
-assert(~(1=0))
-assert(0=0)
 assert(~(0&0))
 assert(~(0&1))
 assert(~(1&0))
@@ -31,11 +52,26 @@ assert(~(0|0))
 assert(0|1)
 assert(1|0)
 assert(1|1)
+assert((0^0)=0)
+assert(1^0)
+assert(0^1)
+assert((1^1)=0)
+
+@ comparison ops
+assert(0=0)
+assert(1=1)
+assert((~-1)=0)
+assert(~(0=1))
+assert(~(1=0))
+assert(0=0)
+assert(1>0)
+assert(~(0>1))
+assert(~(1<0))
+assert(0<1)
 
 @ numbers
 assert(100=100)
 assert(~(-69=69))
-assert(-45=(45*-1))
 assert(+34)
 
 @ boolean globals
@@ -47,18 +83,18 @@ assert(~(T=F))
 assert(T=T)
 assert(F=F)
 
-@ comparison ops
-assert(1>0)
-assert(~(0>1))
-assert(~(1<0))
-assert(0<1)
-
 @ math ops
 assert(1+1=2)
 assert(2-1=1)
 assert(2*2=4)
+assert(-45=(45*-1))
 assert(4/2=2)
 assert(5%2=1)
+
+@ order of operations
+@assert(1<0|2<3)
+@assert(~(1<0&2<3))
+@assert(~(1<0+2&2+2/2<3))
 
 @ variable ops
 :a:0
@@ -127,39 +163,37 @@ assert(ef=55)
 out("hello")
 out("world")
 
+@ array
+:x:100
+:test_array:,3,4,5,x
+out(test_array)
+
 @ bytes
-:some_bytes:alloc(1)
-out(set(some_bytes,0,69))
+:some_bytes:array(1)
+set(some_bytes,0,69)
 out(get(some_bytes,0)) @ print first entry in bytes
 
 @ utilities
-:_ascii_map:"\00\01\02\03\04\05\06\07\08\09\0a\0b\0c\0d\0e\0f\10\11\12\13\14\15\16\17\18\19\1a\1b\1c\1d\1e\1f !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~?"
-:char(x){ $charat(_ascii_map,x) }
-:digit(x){ $charat(_ascii_map,x+30) }
+ :_ascii_map:"                                 !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~?"
+:digit(x){ $char(sget(_ascii_map,x+30)) }
 :itos(x){
  :s:""
  ?x=0{ $"0" }
  ?x{
-  :s:digit(x%+a)+s
+  :s:concat(digit(x%+a),s)
   :x:x/+a
  }^
  $s
 }
 
-assert(char(7e)="~")
-assert(sfind("abc","a")=0)
-assert(sfind("abc","b")=1)
-assert(sfind("abc","c")=2)
-assert(sfind("abc","d")=-1)
-assert(digit(0)="0")
-assert(digit(1)="1")
-assert(digit(9)="9")
-assert(itos(+2aaa)="10922")
-assert(itos(0)="0")
-
-@ TODO:
-@ - escape/break ;
-@ - add array type: ee.0 ee.0
-@ - add string type
-@ - main use case through python file: c = run('code goes here', a, b)
+assert(match(char(7e),"~"))
+assert(sfirst("abc",0,"a")=0)
+assert(sfirst("abc",0,"b")=1)
+assert(sfirst("abc",0,"c")=2)
+assert(sfirst("abc",0,"d")=-1)
+assert(match(digit(0),"0"))
+assert(match(digit(1),"1"))
+assert(match(digit(9),"9"))
+assert(match(itos(+2aaa),"10922"))
+assert(match(itos(0),"0"))
 }

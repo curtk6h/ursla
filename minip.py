@@ -16,12 +16,14 @@ import sys
 VM_NOP  = ' '
 VM_LODI = 'i'
 VM_LODS = 's'
+VM_LODA = 'a'
 VM_DROP = ';'
 VM_EQ   = '='
 VM_LT   = '<'
 VM_GT   = '>'
 VM_OR   = '|'
 VM_AND  = '&'
+VM_XOR  = '^'
 VM_NOT  = '~'
 VM_ADD  = '+'
 VM_SUB  = '-'
@@ -35,7 +37,7 @@ VM_GET  = '#'
 VM_GETG = 'g'
 VM_RET  = '$'
 VM_JSR  = '{'
-VM_ARGS = 'a'
+VM_ARGS = 'p'
 VM_TRY  = 't'
 VM_ETRY = 'T'
 VM_THRO = '!'
@@ -161,19 +163,48 @@ class Compiler(object):
         if self.debug and code[0] == "\n":
             self._write_vm_op(VM_EOL)
 
-        return self._parse_char(code, "\n\t ")
+        return self._parse_char(code, "\n ")
 
     def expr(self, code):
-        return self.unary_or_binary_op(code)
-    
-    def unary_or_binary_op(self, code):
         code = self.unary_op(code)
-        while code[0] in "&|=<>+-*/%":
+        while code[0] in "&|^=<>+-*/%":
             op = code[0]
             code = self.unary_op(code[1:])
             self._write_vm_op(op)
         return code
-
+    
+    # def expr(self, code):
+    #     code = self.comparison(code)
+    #     while code[0] in "&|":
+    #         op = code[0]
+    #         code = self.comparison(code[1:])
+    #         self._write_vm_op(op)
+    #     return code
+    
+    # def comparison(self, code):
+    #     code = self.arithmetic(code)
+    #     while code[0] in "=<>":
+    #         op = code[0]
+    #         code = self.arithmetic(code[1:])
+    #         self._write_vm_op(op)
+    #     return code
+    
+    # def arithmetic(self, code):
+    #     code = self.mul_div_mod(code)
+    #     while code[0] in "+-":
+    #         op = code[0]
+    #         code = self.mul_div_mod(code[1:])
+    #         self._write_vm_op(op)
+    #     return code
+    
+    # def mul_div_mod(self, code):
+    #     code = self.unary_op(code)
+    #     while code[0] in "*/%":
+    #         op = code[0]
+    #         code = self.unary_op(code[1:])
+    #         self._write_vm_op(op)
+    #     return code
+    
     def unary_op(self, code):
         pre_ops = []
         while code[0] == "~":
@@ -233,6 +264,14 @@ class Compiler(object):
         elif code[0] == "(":
             code = self.expr(code[1:])
             return self._parse_char(code, ")")
+        # array        
+        elif code[0] == ",":
+            n = 0
+            while code[0] == ",":
+                code = self.expr(code[1:])
+                n += 1
+            self._write_vm_op_w_int(VM_LODA, n)
+            return code
         # native operation
         elif code[0] == '\\':
             op, code = self._parse_int(code[1:])
@@ -307,10 +346,10 @@ class Compiler(object):
             self.vm_code[b_start:] +\
             self.vm_code[a_start:b_start]
 
-def signed16(value):
+def int16(value):
     return ((value&0xFFFF)^0x8000) - 0x8000
 
-def unsigned16(value):
+def uint16(value):
     return value & 0xFFFF
 
 class VM(object):
@@ -331,15 +370,21 @@ class VM(object):
     def exec_sub(self, exec_code, ip, *args):
         fs_end = len(self.frame_stack)
         self.frame_stack.append(ip)
-        while len(fs) != fs_end:
-            ip = self.ops[exec_bytes[ip]](exec_bytes, ip+1)
+        try:
+            while len(fs) != fs_end:
+                ip = self.ops[exec_bytes[ip]](exec_bytes, ip+1)
+        finally:
+            self.frame_stack[-1] = ip
         return self.operand_stack.pop()
 
     def exec(self, exec_code, ip=0):
         ip_end = len(exec_code)
-        while ip != ip_end:
-            ip = self.ops[exec_bytes[ip]](exec_bytes, ip+1)
-
+        try:
+            while ip != ip_end:
+                ip = self.ops[exec_bytes[ip]](exec_bytes, ip+1)
+        finally:
+            self.frame_stack[-1] = ip
+            
     def compile_exec_bytes(self, vm_code):
         exec_bytes = bytearray(len(vm_code))
         ip = 0
@@ -347,7 +392,7 @@ class VM(object):
             op = vm_code[ip]
             exec_bytes[ip] = ord(op)
             ip += 1
-            if op in 'is?jt':
+            if op in 'isa?jt':
                 n = int(vm_code[ip:ip+4], 16)
                 exec_bytes[ip] = (n>>8)&0xFF
                 exec_bytes[ip+1] = n&0xFF
@@ -357,7 +402,7 @@ class VM(object):
                     while ip < n:
                         exec_bytes[ip] = ord(vm_code[ip])
                         ip += 1
-            elif op in ':#ga':
+            elif op in ':#gp':
                 exec_bytes[ip] = int(vm_code[ip:ip+2], 16)
                 ip += 2
             elif op == '\\':
@@ -366,12 +411,22 @@ class VM(object):
             else:
                 pass # no params
         return exec_bytes
+
+    # def optimize_exec_bytes(self, exec_bytes):
+    #     globs = []
+    #     ip = 0
+    #     while ip < len(exec_bytes):
+    #         op = vm_code[ip]
+    #         exec_bytes[ip] = ord(op)
+    #         ip += 1
+    #         if op in ':':
+    #             globs[i] = ip
         
     def unpack_uint(self, exec_bytes, ip):
         return (exec_bytes[ip]<<8) | exec_bytes[ip+1]
     
     def unpack_int(self, exec_bytes, ip):
-        return signed16(self.unpack_uint(exec_bytes, ip))
+        return int16(self.unpack_uint(exec_bytes, ip))
         
     def _init_ops(self):
         os = self.operand_stack
@@ -385,8 +440,14 @@ class VM(object):
         def _load_str(exec_bytes, ip):
             n = self.unpack_uint(exec_bytes, ip)
             ip += 4
-            os.append(exec_bytes[ip:ip+n].decode('ascii'))
+            os.append(exec_bytes[ip:ip+n])
             return ip + n
+        def _load_array(exec_bytes, ip):
+            n = self.unpack_uint(exec_bytes, ip)
+            a = os[-n:]
+            del os[-n:]
+            os.append(a)
+            return ip + 4
         def _drop(exec_bytes, ip):
             os.pop()
             return ip
@@ -405,17 +466,20 @@ class VM(object):
         def _or(exec_bytes, ip):
             os[-1] = os[-2] | os.pop()
             return ip
+        def _xor(exec_bytes, ip):
+            os[-1] = os[-2] ^ os.pop()
+            return ip        
         def _not(exec_bytes, ip):
             os[-1] = ~os[-1]
             return ip
         def _add(exec_bytes, ip):
-            os[-1] = os[-2] + os.pop()
+            os[-1] = int16(os[-2]+os.pop())
             return ip
         def _sub(exec_bytes, ip):
-            os[-1] = os[-2] - os.pop()
+            os[-1] = int16(os[-2]-os.pop())
             return ip
         def _mul(exec_bytes, ip):
-            os[-1] = os[-2] * os.pop()
+            os[-1] = int16(os[-2]*os.pop())
             return ip
         def _div(exec_bytes, ip):
             os[-1] = os[-2] // os.pop()
@@ -477,49 +541,81 @@ class VM(object):
             return ip
         def _out(exec_bytes, ip):
             value = os[-1]
-            if value is not None:
-                if isinstance(value, list):
-                    value = ''.join(map(str, value))
-                sys.stdout.write(str(value))
+            if isinstance(value, bytearray):
+                value = value.decode("ascii")
+            elif isinstance(value, list):
+                value = ''.join(map(str, value))
+            elif value is None:
+                value = ''
+            sys.stdout.write(str(value))
             return ip
         def _array_alloc(exec_bytes, ip):
-            os.append([None] * unsigned16(os.pop()))
+            os.append([None] * uint16(os.pop()))
+            return ip
+        def _array_len(exec_bytes, ip):
+            os[-1] = len(os[-1])
             return ip
         def _array_get(exec_bytes, ip):
             i, a = os.pop(), os.pop()
-            os.append(a[unsigned16(i)])
+            os.append(a[uint16(i)])
             return ip
         def _array_set(exec_bytes, ip):
             x, i, a = os.pop(), os.pop(), os[-1]
-            a[unsigned16(i)] = x
+            a[uint16(i)] = x
+            return ip
+        def _str_alloc(exec_bytes, ip):
+            os[-1] = bytearray(os[-2]*os.pop(), "ascii")
+            return ip
+        def _str_len(exec_bytes, ip):
+            os[-1] = len(os[-1])
+            return ip
+        def _str_get(exec_bytes, ip):
+            i, s = os.pop(), os.pop()
+            os.append(s[uint16(i)])
+            return ip
+        def _str_set(exec_bytes, ip):
+            c, i, s = os.pop(), os.pop(), os[-1]
+            s[uint16(i)] = c
             return ip
         def _str_ord(exec_bytes, ip):
             os[-1] = ord(os[-1])
             return ip
-        def _str_charat(exec_bytes, ip):
-            i, s = os.pop(), os.pop()
-            os.append(s[unsigned16(i)])
+        def _str_char(exec_bytes, ip):
+            os[-1] = bytearray(chr(os[-1]), "ascii")
             return ip
-        def _str_find(exec_bytes, ip):
+        def _str_first(exec_bytes, ip):
             x, i, s = os.pop(), os.pop(), os.pop()
             os.append(s.find(x, i))
-            return ip
-        def _str_len(exec_bytes, ip):
-            os[-1] = len(os[-1])
             return ip
         def _str_sub(exec_bytes, ip):
             j, i, s = os.pop(), os.pop(), os.pop()
             os.append(s[i:j])
             return ip
+        def _str_match(exec_bytes, ip):
+            os[-1] = os[-2] == os.pop()
+            return ip
+        def _str_concat(exec_bytes, ip):
+            os[-1] = os[-2] + os.pop()
+            return ip
+        def _int_shl(exec_bytes, ip):
+            n, x = os.pop(), os[-1]
+            os[-1] = int16(x<<n)
+            return ip
+        def _int_shr(exec_bytes, ip):
+            n, x = os.pop(), os[-1]
+            os[-1] = int16(x>>n)
+            return ip
         self.ops = [_nop] * 256
         self.ops[ord('i')] = _load_int
         self.ops[ord('s')] = _load_str
+        self.ops[ord('a')] = _load_array
         self.ops[ord(';')] = _drop
         self.ops[ord('=')] = _eq
         self.ops[ord('<')] = _lt
         self.ops[ord('>')] = _gt
         self.ops[ord('|')] = _or
         self.ops[ord('&')] = _and
+        self.ops[ord('^')] = _xor        
         self.ops[ord('~')] = _not
         self.ops[ord('+')] = _add
         self.ops[ord('-')] = _sub
@@ -529,7 +625,7 @@ class VM(object):
         self.ops[ord('?')] = _jz
         self.ops[ord('j')] = _jmp
         self.ops[ord('{')] = _jsr
-        self.ops[ord('a')] = _args
+        self.ops[ord('p')] = _args
         self.ops[ord(':')] = _set
         self.ops[ord('#')] = _get
         self.ops[ord('g')] = _getg
@@ -537,18 +633,24 @@ class VM(object):
         self.ops[ord('t')] = _try
         self.ops[ord('T')] = _end_try
         self.ops[ord('!')] = _throw
-        self.ops[ord('\\')] = _nop
-        self.ops[ord('\n')] = _nop
         self.ops[0x80] = _in
         self.ops[0x81] = _out
         self.ops[0x82] = _array_alloc
-        self.ops[0x83] = _array_get
-        self.ops[0x84] = _array_set
-        self.ops[0x85] = _str_ord
-        self.ops[0x86] = _str_charat
-        self.ops[0x87] = _str_find
-        self.ops[0x88] = _str_len
-        self.ops[0x89] = _str_sub        
+        self.ops[0x83] = _array_len                
+        self.ops[0x84] = _array_get
+        self.ops[0x85] = _array_set
+        self.ops[0x86] = _str_alloc        
+        self.ops[0x87] = _str_len
+        self.ops[0x88] = _str_get
+        self.ops[0x89] = _str_set
+        self.ops[0x8a] = _str_ord
+        self.ops[0x8b] = _str_char
+        self.ops[0x8c] = _str_first
+        self.ops[0x8d] = _str_sub
+        self.ops[0x8e] = _str_match
+        self.ops[0x8f] = _str_concat
+        self.ops[0x90] = _int_shl
+        self.ops[0x91] = _int_shr
         
 # Example usage:
 # do_something = DoitFunction(open("do_something.doit"))
@@ -569,6 +671,7 @@ try:
     vm = VM()
     vm_code = Compiler(debug=True).compile(open(sys.argv[1]).read())
     print(vm_code)
+    print("{} bytes".format(len(vm_code)))
     exec_bytes = vm.compile_exec_bytes(vm_code)
     vm.exec(exec_bytes)
 except Exception as e:
