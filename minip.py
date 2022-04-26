@@ -11,12 +11,13 @@
 # - yield instruction or here
 # - structs
 
-import sys
+import sys, time
 
 VM_NOP  = ' '
 VM_LODI = 'i'
 VM_LODS = 's'
 VM_LODA = 'a'
+VM_LODR = 'r'
 VM_DROP = ';'
 VM_EQ   = '='
 VM_LT   = '<'
@@ -143,7 +144,7 @@ class Compiler(object):
                     code = self.code_block(code)
                     self.vs.pop()
                     self._write_vm_addr(top+1, len(self.vm_code))
-                    self._write_vm_op_w_int(VM_LODI, top+5)
+                    self._write_vm_op_w_addr(VM_LODR, top+5)
                 self._write_vm_op_w_byte(VM_SET, var_idx)
         # return
         elif code[0] == "$":
@@ -352,12 +353,16 @@ def int16(value):
 def uint16(value):
     return value & 0xFFFF
 
+def cmp(a, b):
+    return (a > b) - (a < b)
+
 class VM(object):
     def __init__(self):
         self.operand_stack = []
         self.var_stack = [None, None, 0, -1] + ([None] * (256-4) * 16)
         self.frame_stack = [-1]
         self.err_stack = []
+        self.start_time = time.time()
         self._init_ops()
 
     def err_line_num(self, vm_code, frame_index=-1):
@@ -384,22 +389,23 @@ class VM(object):
                 ip = self.ops[exec_bytes[ip]](exec_bytes, ip+1)
         finally:
             self.frame_stack[-1] = ip
-            
-    def compile_exec_bytes(self, vm_code):
+
+    @staticmethod
+    def compile_exec_bytes(vm_code):
         exec_bytes = bytearray(len(vm_code))
         ip = 0
         while ip < len(vm_code):
             op = vm_code[ip]
             exec_bytes[ip] = ord(op)
             ip += 1
-            if op in 'isa?jt':
-                n = int(vm_code[ip:ip+4], 16)
-                exec_bytes[ip] = (n>>8)&0xFF
-                exec_bytes[ip+1] = n&0xFF
+            if op in 'isar?jt':
+                x = int(vm_code[ip:ip+4], 16)
+                exec_bytes[ip] = (x>>8)&0xFF
+                exec_bytes[ip+1] = x&0xFF
                 ip += 4
                 if op == 's':
-                    n += ip
-                    while ip < n:
+                    x += ip
+                    while ip < x:
                         exec_bytes[ip] = ord(vm_code[ip])
                         ip += 1
             elif op in ':#gp':
@@ -410,18 +416,26 @@ class VM(object):
                 ip += 2
             else:
                 pass # no params
-        return exec_bytes
+        return VM.tune_exec_bytes(exec_bytes)
 
-    # def optimize_exec_bytes(self, exec_bytes):
-    #     globs = []
-    #     ip = 0
-    #     while ip < len(exec_bytes):
-    #         op = vm_code[ip]
-    #         exec_bytes[ip] = ord(op)
-    #         ip += 1
-    #         if op in ':':
-    #             globs[i] = ip
+    @staticmethod
+    def tune_exec_bytes(exec_bytes):
+        # NOO HANLE IN COMPILER? if single return statement w/ no args,
+        # indicate inlinable, then totally replace with code. ADD stack kw @0??
         
+        # inline single command global calls i.e. natives
+        #  1. record (lodr, set-x) where addr[+1] = return
+        #  2. (get-x, jsr) with (native)
+        # make compound ops:
+        #  inc local, ?!=0{, get 2 locals, get local + attr, get local 0
+        # window = [0, 0, 0, 0]
+        # ip = 0
+        # while ip < len(exec_bytes):
+        #     op = vm_code[ip]
+        #     exec_bytes[ip] = ord(op)
+        #     ip += 1
+        return exec_bytes
+    
     def unpack_uint(self, exec_bytes, ip):
         return (exec_bytes[ip]<<8) | exec_bytes[ip+1]
     
@@ -502,11 +516,11 @@ class VM(object):
             for i in range(var_off, var_off+exec_bytes[ip])[::-1]:
                 vs[i] = os.pop()
             return ip + 1
-        def _set(exec_bytes, ip):
+        def _setl(exec_bytes, ip):
             var_off = (len(fs)-1) * 256
             vs[var_off+exec_bytes[ip]] = os.pop()
             return ip + 2
-        def _get(exec_bytes, ip):
+        def _getl(exec_bytes, ip):
             var_off = (len(fs)-1) * 256
             os.append(vs[var_off+exec_bytes[ip]])
             return ip + 2
@@ -536,6 +550,14 @@ class VM(object):
             del os[operand_n:]
             return ip
         # REMINDER: write ip to fs[-1] before executing subroutine in func v
+        def _is(exec_bytes, ip):
+            os[-1] = -1 if os[-2] is os.pop() else 0
+            return ip
+        def _weak(exec_bytes, ip):
+            return ip
+        def _time(exec_bytes, ip):
+            os.append(int(round((time.time()-self.start_time)*1000)))
+            return ip
         def _in(exec_bytes, ip):
             os.append(sys.stdin.read())
             return ip
@@ -549,66 +571,49 @@ class VM(object):
                 value = ''
             sys.stdout.write(str(value))
             return ip
-        def _array_alloc(exec_bytes, ip):
-            os.append([None] * uint16(os.pop()))
+        def _pack(exec_bytes, ip):
+            value, mask = os.pop(), os.pop()
+            os[-1] = ((os[-1]&~mask)|(value<<ffb(mask)))
             return ip
-        def _array_len(exec_bytes, ip):
+        def _unpack(exec_bytes, ip):
+            mask = os.pop()
+            os[-1] = ((os[-1]&mask)>>ffb(mask))
+            return ip
+        def _clamp(exec_bytes, ip):
+            max_, min_ = os.pop(), os.pop()
+            os[-1] = min(max(os[-1], min_), max_)
+            return ip
+        def _data(exec_bytes, ip):
+            os[-1] = bytearray(os[-1])
+            return ip
+        def _array(exec_bytes, ip):
+            os.append([None]*uint16(os.pop()))
+            return ip
+        def _len(exec_bytes, ip):
             os[-1] = len(os[-1])
             return ip
-        def _array_get(exec_bytes, ip):
+        def _cmp(exec_bytes, ip):
+            os[-1] = cmp(os[-2], os.pop())
+            return ip
+        def _get(exec_bytes, ip):
             i, a = os.pop(), os.pop()
             os.append(a[uint16(i)])
             return ip
-        def _array_set(exec_bytes, ip):
+        def _set(exec_bytes, ip):
             x, i, a = os.pop(), os.pop(), os[-1]
             a[uint16(i)] = x
             return ip
-        def _str_alloc(exec_bytes, ip):
-            os[-1] = bytearray(os[-2]*os.pop(), "ascii")
-            return ip
-        def _str_len(exec_bytes, ip):
-            os[-1] = len(os[-1])
-            return ip
-        def _str_get(exec_bytes, ip):
-            i, s = os.pop(), os.pop()
-            os.append(s[uint16(i)])
-            return ip
-        def _str_set(exec_bytes, ip):
-            c, i, s = os.pop(), os.pop(), os[-1]
-            s[uint16(i)] = c
-            return ip
-        def _str_ord(exec_bytes, ip):
-            os[-1] = ord(os[-1])
-            return ip
-        def _str_char(exec_bytes, ip):
-            os[-1] = bytearray(chr(os[-1]), "ascii")
-            return ip
-        def _str_first(exec_bytes, ip):
-            x, i, s = os.pop(), os.pop(), os.pop()
-            os.append(s.find(x, i))
-            return ip
-        def _str_sub(exec_bytes, ip):
-            j, i, s = os.pop(), os.pop(), os.pop()
-            os.append(s[i:j])
-            return ip
-        def _str_match(exec_bytes, ip):
-            os[-1] = os[-2] == os.pop()
-            return ip
-        def _str_concat(exec_bytes, ip):
-            os[-1] = os[-2] + os.pop()
-            return ip
-        def _int_shl(exec_bytes, ip):
-            n, x = os.pop(), os[-1]
-            os[-1] = int16(x<<n)
-            return ip
-        def _int_shr(exec_bytes, ip):
-            n, x = os.pop(), os[-1]
-            os[-1] = int16(x>>n)
-            return ip
+        def _copy(exec_bytes, ip):
+            n, si, di, src = os.pop(), os.pop(), os.pop(), os.pop()
+            dest = os[-1]
+            for j in range(n):
+                dest[di+j] = src[si+j]
+            return ip        
         self.ops = [_nop] * 256
         self.ops[ord('i')] = _load_int
         self.ops[ord('s')] = _load_str
         self.ops[ord('a')] = _load_array
+        self.ops[ord('r')] = _load_int
         self.ops[ord(';')] = _drop
         self.ops[ord('=')] = _eq
         self.ops[ord('<')] = _lt
@@ -626,31 +631,28 @@ class VM(object):
         self.ops[ord('j')] = _jmp
         self.ops[ord('{')] = _jsr
         self.ops[ord('p')] = _args
-        self.ops[ord(':')] = _set
-        self.ops[ord('#')] = _get
+        self.ops[ord(':')] = _setl
+        self.ops[ord('#')] = _getl
         self.ops[ord('g')] = _getg
         self.ops[ord('$')] = _ret
         self.ops[ord('t')] = _try
         self.ops[ord('T')] = _end_try
-        self.ops[ord('!')] = _throw
-        self.ops[0x80] = _in
-        self.ops[0x81] = _out
-        self.ops[0x82] = _array_alloc
-        self.ops[0x83] = _array_len                
-        self.ops[0x84] = _array_get
-        self.ops[0x85] = _array_set
-        self.ops[0x86] = _str_alloc        
-        self.ops[0x87] = _str_len
-        self.ops[0x88] = _str_get
-        self.ops[0x89] = _str_set
-        self.ops[0x8a] = _str_ord
-        self.ops[0x8b] = _str_char
-        self.ops[0x8c] = _str_first
-        self.ops[0x8d] = _str_sub
-        self.ops[0x8e] = _str_match
-        self.ops[0x8f] = _str_concat
-        self.ops[0x90] = _int_shl
-        self.ops[0x91] = _int_shr
+        self.ops[ord('!')] = _throw        
+        self.ops[0x80] = _is
+        self.ops[0x81] = _weak
+        self.ops[0x82] = _time
+        self.ops[0x83] = _in
+        self.ops[0x84] = _out
+        self.ops[0x85] = _pack
+        self.ops[0x86] = _unpack
+        self.ops[0x87] = _clamp
+        self.ops[0x88] = _data
+        self.ops[0x89] = _array
+        self.ops[0x8a] = _len
+        self.ops[0x8b] = _cmp
+        self.ops[0x8c] = _get
+        self.ops[0x8d] = _set
+        self.ops[0x8e] = _copy
         
 # Example usage:
 # do_something = DoitFunction(open("do_something.doit"))

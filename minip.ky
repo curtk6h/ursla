@@ -1,91 +1,201 @@
 {
-@there's only one way to do most ops
-@instead of a<=b it's ~(a>b)
-@Implement conversion functions:
-@itoc,itos
-@stoi
-@ctoi
-@int8,int16,int32
-@uint8,uint16,uint32
-@pack8,pack16
-@unpack8,unpack16
-@sum,concat(agg funcs. stop allowing + for str)
-@:concat(*args){args} @ stores vars in args variable
-
-@reads code from stdin, writes vmcode to stdout
-
 @standard lib
-:in{ $\80 }
-:out{ $\81 }
-:array{ $\82 }
-:alen{ $\83 }
-:get{ $\84 }
-:set{ $\85 }
-:str{ $\86 }
-:slen{ $\87 }
-:sget{ $\88 }
-:sset{ $\89 }
-:byte{ $\8a }
-:char(x){ $\8b }
-:sfirst{ $\8c }
-:substr{ $\8d }
-:shl{ $\8e }
-:shr{ $\8f }
-:digit(x){ $sget(_ascii_map,x+30) }
-:itos(x){
- :s:""
+:is{ $\80 }
+:weak{ $\81 }
+:time{ $\82 }
+:in{ $\83 }
+:out{ $\84 }
+:pack{ $\85 }
+:unpack{ $\86 }
+:clamp{ $\87 }
+:data{ $\88 }
+:array{ $\89 }
+:len{ $\8a }
+:cmp{ $\8b }
+:get{ $\8c }
+:set{ $\8d }
+:copy{ $\8e }
+
+:EMPTY_DATA:""
+:EMPTY_ARRAY:array(0)
+
+:_build_char_map(char_map){
+ :c:7f
+ ?c>-1{
+  set(char_map,c,set(data(1),0,c))
+  :c:c-1
+ }^
+ $char_map
+}
+:_char_map:_build_char_map(array(128))
+:char(x){
+ $get(_char_map,x)
+}
+:_NL:0a
+:_SPACE:20
+:_TAB:09
+:NL:char(_NL)
+:SPACE:char(_SPACE)
+:TAB:char(_TAB)
+
+:digit(x){
+ $get(_char_map,x+30)
+}
+:fp(i,f){
+ $(i*10000)+f
+}
+:int(x){
+ $(x/10000)
+}
+:itod(x){
  ?x=0{ $"0" }
+ :y:x
+ :n:0
+ ?y{
+  :y:y/+a
+  :n:n+1
+ }^
+ :s:data(n)
+ :i:n-1
  ?x{
-  :s:digit(x%+a)+s
+  set(s,i,(x%+a)+30)
   :x:x/+a
+  :i:i-1
  }^
  $s
 }
-:scount(s,i,j,x){
+:dchunk(d,i,n){
+ $copy(data(n),d,0,i,n)
+}
+:dclone(d){
+ $copy(data(len(d)),d,0,0,len(d))
+}
+:dconcat(a,b){
+ :c:data(len(a)+len(b))
+ $copy(c,a,0,0,len(a))
+ $copy(c,b,len(a),0,len(b))
+ $c
+}
+:join(delimiter,datas){
+ :n:len(datas)
+ :i:n-1
+ ?i=0{ $EMPTY_DATA }
+ :new_str_n:(i*len(delimiter))
+ ?i>-1{
+  :new_str_n:new_str_n+len(get(datas,i))
+  :i:i-1
+ }^
+ :new_str:data(new_str_n)
+ :old_str:get(datas,0)
+ copy(new_str,old_str,0,0,len(old_str))
+ :new_str_i:len(old_str) 
+ :i:1
+ ?i<n{
+  :old_str:get(datas,i)
+  copy(new_str,delimiter,new_str_i,0,len(delimiter))
+  :new_str_i:new_str_i+len(delimiter)
+  copy(new_str,old_str,new_str_i,0,len(old_str))
+  :new_str_i:new_str_i+len(old_str)
+  :i:i+1
+ }^
+ $new_str
+}
+:achunk(a,i,n){
+ $copy(array(n),a,0,i,n)
+}
+:aclone(a){
+ $copy(array(len(a)),a,0,0,len(a))
+}
+:aconcat(a,b){
+ :c:array(len(a)+len(b))
+ $copy(c,a,0,0,len(a))
+ $copy(c,b,len(a),0,len(b))
+ $c
+}
+:flatten(arrays){
+ :n:len(arrays)
+ :i:n-1
+ ?i=0{ $EMPTY_ARRAY }
+ :flattened_n:0
+ ?i>-1{
+  :flattened_n:flattened_n+len(get(arrays,i))
+  :i:i-1
+ }^
+ :flattened:array(flattened_n)
+ :flattened_i:0 
+ :i:0
+ ?i<n{
+  :cur_array:get(arrays,i)
+  copy(flattened,cur_array,flattened_i,0,len(cur_array))
+  :flattened_i:flattened_i+len(cur_array)
+  :i:i+1
+ }^
+ $flattened 
+}
+:sum(ints){
+ :x:0
+ :n:len(ints)-1
+ ?n>-1{
+  :x:x+get(ints,n)
+  :n:n-1
+ }^
+ $x
+}
+:select(x,a,b){
+ ?x{ $a }:{ $b }
+}
+:default(x,def){
+ ?is(x,NIL){ $def }:{ $x }
+}
+:empty(x){
+ $is(x,NIL)|(len(x)=0)
+}
+:count(a,i,j,x){
  :n:0
  ?i<j{
-  ?sget(s,i)=x{
+  ?is(get(a,i),x){
    :n:n+1
   }
   :i:i+1
  }^
  $n
 }
-:slast(s,i,j,x){
- ?j>i{
-  ?sget(s,j)=x{
-   $j
-  }
-  :j:j-1
- }^
- $-1
-}
-:lpad(s,x,n){
- ?n>0{
-  :s:x+s
-  :n:n-1
- }^
- $s
-}
-:afirst(a,x){
- :i:0
- :j:alen(a)
+:first(a,i,j,x){
  ?i<j{
-  ?get(a,i)=x{
+  ?is(get(a,i),x){
    $i
   }
   :i:i+1
  }
  $-1
 }
+:last(a,i,j,x){
+ ?j>i{
+  ?is(get(a,j),x){
+   $j
+  }
+  :j:j-1
+ }^
+ $-1
+}
+:pad(s,x,n){
+ ?n>0{
+  :s:x+s
+  :n:n-1
+ }^
+ $s
+}
 :map(a,f){
  :i:0
- :j:alen(a)
+ :j:len(a)
  ?i<j{
   set(a,i,f(get(a,i)))
   :i:i+1
  }
  $a
+}
+:map{
+ \00
 }
 :is_digit(c){
  :x:ord(c)
@@ -103,8 +213,6 @@
  :x:ord(c)
  $((x>40)&(x<5b))|((x>60)&(x<79))|((x>2f)&(x<3a))|(x=5f)
 }
-
-:NL:char(0a)
 
 @Vector
 :Vector_v(vec){ $get(vec,0) }
@@ -189,7 +297,7 @@
  :line_num:scount(code,0,i,NL)+1
  :line_start:slast(code,0,i,NL)+1
  :line:substr(code,line_start,sfirst(code,i,NL))
- :line_arrow:lpad("^"," ",i-line_start)
+ :line_arrow:pad("^"," ",i-line_start)
  !"Syntax error on line "+itos(line_num)+": "+msg+NL+line+NL+line_arrow
 }
 :Compiler_parse_char(code,i,chars){
