@@ -44,6 +44,7 @@
 :CURLY_BRACE_R:7d
 :PLUS_SIGN:2b
 :MINUS_SIGN:2d
+:DOUBLE_QUOTE:22
 
 :_result:,NIL
 :set_result(x){
@@ -228,8 +229,6 @@
  $a
 }
 
-:PLUS_SIGN:2b
-:MINUS_SIGN:2d
 :_hex_digits:"0123456789abcdef"
 :hex_digit(x){
  $get(_hex_digits,x)
@@ -290,6 +289,9 @@
 }
 
 @Compiler
+:LODI:69
+:LODS:73
+:DROP:3b
 :Compiler_vmcode(comp){ $get(comp,0) }
 :Compiler_vmcode_idx(comp){ $get(comp,1) }
 :Compiler_set_vmcode_idx(comp,i){ $set(comp,1,i) }
@@ -320,15 +322,23 @@
  :i:Compiler_vmcode_idx(comp)
  set(Compiler_vmcode(comp),i,op)
  :i:Compiler_encode_byte(comp,i+1,x)
- Compiler_set_vmcode_idx(comp,i)
- $comp
+ $Compiler_set_vmcode_idx(comp,i)
 }
 :Compiler_append_op_w_short(comp,op,x){
  :i:Compiler_vmcode_idx(comp)
  set(Compiler_vmcode(comp),i,op)
  :i:Compiler_encode_short(comp,i+1,x)
- Compiler_set_vmcode_idx(comp,i)
- $comp
+ $Compiler_set_vmcode_idx(comp,i)
+}
+:Compiler_append_data(comp,d,i,j){
+ :vmcode:Compiler_vmcode(comp)
+ :vmcode_i:Compiler_vmcode_idx(comp) 
+ ?i<j{
+  set(vmcode,vmcode_i,get(d,i))
+  :vmcode_i:vmcode_i+1
+  :i:i+1
+ }^
+ $Compiler_set_vmcode_idx(comp,vmcode_i)
 }
 :Compiler_append_op_w_addr:Compiler_append_op_w_short
 :Compiler_throw_syntax_err(code,i,msg){
@@ -381,7 +391,6 @@
  set_result(x*s)
  $j
 }
-:LODI:69
 :Compiler_c_integer(comp,code,i){
  :i:Compiler_parse_int(code,i)
  Compiler_append_op_w_short(comp,LODI,result(0))
@@ -389,8 +398,22 @@
 }
 :Compiler_c_operand(comp,code,i){
  :c:get(code,i)
+ @integer
  ?is_digit(c)|(c=PLUS_SIGN)|(c=MINUS_SIGN){
   $Compiler_c_integer(comp,code,i)
+ }
+ @text
+ ?c=DOUBLE_QUOTE{
+  :i:i+1
+  :c:get(code,i)
+  :j:i
+  ?~(get(code,j)=DOUBLE_QUOTE){
+   :j:j+1
+  }^
+  Compiler_append_op_w_short(comp,LODS,j-i)
+  Compiler_append_data(comp,code,i,j)
+  Compiler_append_op(comp,DROP)
+  $j+1
  }
  $i
 }

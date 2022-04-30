@@ -236,19 +236,11 @@ class Compiler(object):
         # string
         elif code[0] == '"':
             code = code[1:]
-            text = ""
             n = 0
             while code[n] != '"':
-                if code[n] == '\\':
-                    n += 1
-                    if self._is_digit(code[n]):
-                        text += chr(int(code[n:n+2], 16))
-                        n += 2
-                        continue
-                text += code[n]
                 n += 1
-            self._write_vm_op_w_int(VM_LODS, len(text))
-            self.vm_code.extend(text)
+            self._write_vm_op_w_int(VM_LODS, n)
+            self.vm_code.extend(code[:n])
             return code[n+1:]
         # get variable
         elif self._is_word(code[0]):
@@ -677,9 +669,13 @@ class Function(object):
 
 try:
     vm = VM()
-    vm_code = Compiler(debug=True).compile(open(sys.argv[1]).read())
-    print(vm_code)
-    print("{} bytes".format(len(vm_code)))
+    code = open(sys.argv[1]).read()
+    if code[0] == '{':
+        vm_code = Compiler(debug=True).compile(code)
+    else:
+        vm_code = code
+    #print(vm_code)
+    #print("{} bytes".format(len(vm_code)))
     exec_bytes = vm.compile_exec_bytes(vm_code)
     vm.exec(exec_bytes)
 except Exception as e:
