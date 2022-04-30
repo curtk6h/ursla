@@ -1,4 +1,22 @@
 {
+@variable shorthand naming
+@ a : array
+@ v : vector/array
+@ d : data
+@ t : text
+@ i : index
+@ j : end index or nested index
+@ k : nested index
+@ n : length data/array or counter
+@ x : numeric or other value
+@ y : numeric or other value
+@ z : numeric or other value
+@ a : numeric or other value, as part of a set
+@ b : numeric or other value, as part of a set
+@ c : numeric or other value, as part of a set
+@ r : result
+@ m : match or mulitplier or alt counter
+
 @standard lib
 :is{ $\80 }
 :weak{ $\81 }
@@ -18,7 +36,22 @@
 
 :EMPTY_DATA:""
 :EMPTY_ARRAY:array(0)
+:NL:0a
+:SPACE:20
+:TAB:09
+:AT_SIGN:40
+:CURLY_BRACE_L:7b
+:CURLY_BRACE_R:7d
+:PLUS_SIGN:2b
+:MINUS_SIGN:2d
 
+:_result:,NIL
+:set_result(x){
+ $set(_result,0,x)
+}
+:result(i){
+ $get(_result,i)
+}
 :_build_char_map(char_map){
  :c:7f
  ?c>-1{
@@ -31,12 +64,6 @@
 :char(x){
  $get(_char_map,x)
 }
-:_NL:0a
-:_SPACE:20
-:_TAB:09
-:NL:char(_NL)
-:SPACE:char(_SPACE)
-:TAB:char(_TAB)
 
 :digit(x){
  $get(_char_map,x+30)
@@ -55,14 +82,14 @@
   :y:y/+a
   :n:n+1
  }^
- :s:data(n)
+ :d:data(n)
  :i:n-1
  ?x{
-  set(s,i,(x%+a)+30)
+  set(d,i,(x%+a)+30)
   :x:x/+a
   :i:i-1
  }^
- $s
+ $d
 }
 :dchunk(d,i,n){
  $copy(data(n),d,0,i,n)
@@ -99,6 +126,9 @@
   :i:i+1
  }^
  $new_str
+}
+:joinlines(a){
+ $join(char(NL),a)
 }
 :achunk(a,i,n){
  $copy(array(n),a,0,i,n)
@@ -178,12 +208,15 @@
  }^
  $-1
 }
-:pad(s,x,n){
+:pad(t,x,n){
  ?n>0{
-  :s:x+s
+  :t:x+t
   :n:n-1
  }^
- $s
+ $t
+}
+:has(a,x){
+ $first(a,0,len(a),x)>-1
 }
 :map(a,f){
  :i:0
@@ -194,23 +227,28 @@
  }
  $a
 }
-:map{
- \00
+
+:PLUS_SIGN:2b
+:MINUS_SIGN:2d
+:_hex_digits:"0123456789abcdef"
+:hex_digit(x){
+ $get(_hex_digits,x)
 }
-:is_digit(c){
- :x:ord(c)
+:parse_hex_digit(c){
+ :x:c-61
+ ?x<0{ $x+31 }
+ $x+0a
+}
+:is_digit(x){
  $((x>2f)&(x<3a))
 }
-:is_hex_digit(c){
- :x:ord(c)
+:is_hex_digit(x){
  $((x>2f)&(x<3a))|((x>60)&(x<67))
 }
-:is_alpha(c){
- :x:ord(c)
+:is_alpha(x){
  $((x>40)&(x<5b))|((x>60)&(x<79))
 }
-:is_word(c){
- :x:ord(c)
+:is_word(x){
  $((x>40)&(x<5b))|((x>60)&(x<79))|((x>2f)&(x<3a))|(x=5f)
 }
 
@@ -228,9 +266,9 @@
  :v:get(vec,0)
  :n:get(vec,1)
  set(vec,1,n+1)
- $set(v,n,x)
+ set(v,n,x)
+ $vec
 }
-:Vector_push:Vector_append
 :Vector_output_chars(vec){
  :i:0
  :v:get(vec,0)
@@ -254,84 +292,128 @@
 @Compiler
 :Compiler_vmcode(comp){ $get(comp,0) }
 :Compiler_vmcode_idx(comp){ $get(comp,1) }
-:Compiler_set_vmcode_idx(comp,x){ $set(comp,1,x) }
+:Compiler_set_vmcode_idx(comp,i){ $set(comp,1,i) }
 :Compiler_debug(comp){ $get(comp,2) }
 :Compiler_words(comp){ $get(comp,3) }
 :Compiler_vs(comp){ $get(comp,4) }
-:Compiler_append_op(comp,op){
- :i:Compiler_vmcode_idx(comp)
- sset(Compiler_vmcode(comp),i,op)
- Compiler_set_vmcode_idx(comp,i+1)
- $comp
-}
 :Compiler_encode_byte(comp,i,x){
  :vmcode:Compiler_vmcode(comp)
- sset(vmcode,i+0,shr(x,+4)&+f)
- sset(vmcode,i+1,x&+f)
- $comp
+ set(vmcode,i+0,hex_digit(unpack(x,+f0)))
+ set(vmcode,i+1,hex_digit(x&+f))
+ $i+2
 }
 :Compiler_encode_short(comp,i,x){
  :vmcode:Compiler_vmcode(comp)
- sset(vmcode,i+0,shr(x,+c)&+f)
- sset(vmcode,i+1,shr(x,+8)&+f)
- sset(vmcode,i+2,shr(x,+4)&+f)
- sset(vmcode,i+3,x&+f)
- $comp
+ set(vmcode,i+0,hex_digit(unpack(x,+f000)))
+ set(vmcode,i+1,hex_digit(unpack(x,+f00)))
+ set(vmcode,i+2,hex_digit(unpack(x,+f0)))
+ set(vmcode,i+3,hex_digit(x&+f))
+ $i+4
+}
+:Compiler_append_op(comp,op){
+ :i:Compiler_vmcode_idx(comp)
+ set(Compiler_vmcode(comp),i,op)
+ Compiler_set_vmcode_idx(comp,i+1)
+ $i+1
 }
 :Compiler_append_op_w_byte(comp,op,x){
  :i:Compiler_vmcode_idx(comp)
- Vector_append(Compiler_vmcode(comp),op)
- Compiler_encode_byte(comp,i,x)
- Compiler_set_vmcode_idx(i+3)
+ set(Compiler_vmcode(comp),i,op)
+ :i:Compiler_encode_byte(comp,i+1,x)
+ Compiler_set_vmcode_idx(comp,i)
  $comp
 }
 :Compiler_append_op_w_short(comp,op,x){
  :i:Compiler_vmcode_idx(comp)
- Vector_append(Compiler_vmcode(comp),op)
- Compiler_encode_short(comp,i,x)
- Compiler_set_vmcode_idx(i+5)
+ set(Compiler_vmcode(comp),i,op)
+ :i:Compiler_encode_short(comp,i+1,x)
+ Compiler_set_vmcode_idx(comp,i)
  $comp
 }
 :Compiler_append_op_w_addr:Compiler_append_op_w_short
 :Compiler_throw_syntax_err(code,i,msg){
- :line_num:scount(code,0,i,NL)+1
- :line_start:slast(code,0,i,NL)+1
- :line:substr(code,line_start,sfirst(code,i,NL))
+ :line_num:count(code,0,i,NL)+1
+ :line_start:last(code,0,i,NL)+1
+ :line_end:first(code,i,len(code),NL)
+ :line:dchunk(code,line_start,line_end-line_start)
  :line_arrow:pad("^"," ",i-line_start)
- !"Syntax error on line "+itos(line_num)+": "+msg+NL+line+NL+line_arrow
+ !joinlines(,join(EMPTY_DATA,(,"Syntax error on line ",itod(line_num),": ",msg)),line,line_arrow)
 }
-:Compiler_parse_char(code,i,chars){
- :c:sget(code,i)
- ?sfirst(chars,0,c)=-1{
-  Compiler_throw_syntax_err(code,i,"Expected "+chars+" got "+c)
+:Compiler_parse_char(code,i,m){
+ :c:get(code,i)
+ ?c=m{
+  $i+1
  }
- $i+1
+ :msg:join(EMPTY_DATA,(,"Expected ",char(m)," got ",char(c)))
+ Compiler_throw_syntax_err(code,i,msg)
 }
 :Compiler_skip_ws(code,i){
- ?get(code,i)=" "{
+ ?get(code,i)=SPACE{
   :i:i+1
+ }
+ $i
+}
+:Compiler_parse_int(code,i){
+ :s:1
+ :c:get(code,i)
+ ?c=PLUS_SIGN{
+  :i:i+1
+ }:?c=MINUS_SIGN{
+  :s:-1
+  :i:i+1
+ }
+ :j:i
+ ?is_hex_digit(get(code,j)){
+  :j:j+1
+ }^
+ :x:0 
+ :n:j-i-1
+ :m:1
+ ?n>-1{
+  :x:x+(parse_hex_digit(get(code,i+n))*m)
+  :m:m*10
+  :n:n-1
+ }^
+ ?i=j{
+  :msg:join(EMPTY_DATA,(,"Expected int got ",get(code,i)))
+  Compiler_throw_syntax_err(code,i,msg)
+ }
+ set_result(x*s)
+ $j
+}
+:LODI:69
+:Compiler_c_integer(comp,code,i){
+ :i:Compiler_parse_int(code,i)
+ Compiler_append_op_w_short(comp,LODI,result(0))
+ $i
+}
+:Compiler_c_operand(comp,code,i){
+ :c:get(code,i)
+ ?is_digit(c)|(c=PLUS_SIGN)|(c=MINUS_SIGN){
+  $Compiler_c_integer(comp,code,i)
  }
  $i
 }
 :Compiler_c_statement(comp,code,i){
  :i:Compiler_skip_ws(code,i)
- :c:sget(code,i)
- ?c="@"{
-  ?~(sget(code,i)=NL){
+ :c:get(code,i)
+ ?c=AT_SIGN{
+  ?~(get(code,i)=NL){
    :i:i+1
   }^
-  ?Compiler_debug(comp){
-   @write out comment
-  }
+ }:{
+  @for testing only v
+  :i:Compiler_c_operand(comp,code,i)
+  @for testing only ^
  }
- ?Compiler_debug(comp)&(sget(code,i)=NL){
+ ?Compiler_debug(comp)&(get(code,i)=NL){
    Compiler_append_op(comp,NL)
  }
  $Compiler_parse_char(code,i,NL)
 }
 :Compiler_c_code_block(comp,code,i){
- :i:Compiler_parse_char(code,i,"{")
- ?~(sget(code,i)="}"){
+ :i:Compiler_parse_char(code,i,CURLY_BRACE_L)
+ ?~(get(code,i)=CURLY_BRACE_R){
   :i:Compiler_c_statement(comp,code,i)
  }^
  $i+1
@@ -343,7 +425,7 @@
  $comp
 }
 :Compiler_output_chars(comp){
- Vector_output_chars(Compiler_vmcode(comp))
+ out(Compiler_vmcode(comp))
  $comp
 }
 :Compiler_init_words(words){
@@ -362,7 +444,7 @@
  $vs
 }
 :Compiler_init(comp){
- set(comp,0,str(char(00),+ffff))
+ set(comp,0,data(+7fff))
  set(comp,1,0)
  set(comp,2,T)
  set(comp,3,Compiler_init_words(Vector(4)))
@@ -370,7 +452,7 @@
  $comp
 }
 :Compiler{
- $Compiler_init(array(4))
+ $Compiler_init(array(5))
 }
 :comp:Compiler()
 Compiler_compile(comp,in())

@@ -1,4 +1,5 @@
 {
+@TODO: * substitute last line for ^ to allow chaining ops
 @standard lib
 :is{ $\80 }
 :weak{ $\81 }
@@ -344,6 +345,64 @@ assert(flatten(,(,0),(,1,2,3),(,4,5,6,7,8,9))=(,0,1,2,3,4,5,6,7,8,9))
 @ assert(match(digit(0),"0"))
 @ assert(match(digit(1),"1"))
 @ assert(match(digit(9),"9"))
+
+:PLUS_SIGN:2b
+:MINUS_SIGN:2d
+:_hex_digits:"0123456789abcdef"
+:hex_digit(x){
+ $get(_hex_digits,x)
+}
+:parse_hex_digit(c){
+ :x:c-61
+ ?x<0{ $x+31 }
+ $x+0a
+}
+:is_digit(x){
+ $((x>2f)&(x<3a))
+}
+:is_hex_digit(x){
+ $((x>2f)&(x<3a))|((x>60)&(x<67))
+}
+:_result:,NIL
+:set_result(x){
+ $set(_result,0,x)
+}
+:result(i){
+ $get(_result,i)
+}
+:parse_int(code,i){
+ :s:1
+ :c:get(code,i)
+ ?c=PLUS_SIGN{
+  :i:i+1
+ }:?c=MINUS_SIGN{
+  :s:-1
+  :i:i+1
+ }
+ :j:i
+ ?is_hex_digit(get(code,j)){
+  :j:j+1
+ }^
+ :x:0 
+ :n:j-i-1
+ :m:1
+ ?n>-1{
+  :x:x+(parse_hex_digit(get(code,i+n))*m)
+  :m:m*10
+  :n:n-1
+ }^
+ ?i=j{
+  !"Error"
+ }
+ set_result(x*s)
+ $j
+}
+out("parsehexdigit:")
+:ii:parse_int("-7fd1 ",0)
+out("ii:")
+out(itod(ii))
+out("foo:")
+out(result(0))
 
 out(NL)
 out("123456789helloworld345256105dynamic <- EXPECTED")

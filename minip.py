@@ -356,6 +356,12 @@ def uint16(value):
 def cmp(a, b):
     return (a > b) - (a < b)
 
+_BIT_POS = [0, 0, 1, 26, 2, 23, 27, 0, 3, 16, 24, 30, 28, 11, 0, 13, 4, 7, 17, 0, 25, 22, 31, 15, 29, 10, 12, 6, 0, 21, 14, 9, 5, 20, 8, 19, 18]
+
+def ffb(x):
+    # NOTE: this only works for values where 1 bit is set
+    return _BIT_POS[(x&-x)%37]
+
 class VM(object):
     def __init__(self):
         self.operand_stack = []
@@ -559,7 +565,7 @@ class VM(object):
             os.append(int(round((time.time()-self.start_time)*1000)))
             return ip
         def _in(exec_bytes, ip):
-            os.append(sys.stdin.read())
+            os.append(bytearray(sys.stdin.read(), 'ascii'))
             return ip
         def _out(exec_bytes, ip):
             value = os[-1]
