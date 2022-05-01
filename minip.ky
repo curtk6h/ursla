@@ -449,7 +449,7 @@
   Compiler_append_op_w_short(comp,LODA,n)
   $i
  }
- @native
+ @native (UNTESTED)
  ?c=BACKSLASH{
   :i:Compiler_parse_int(code,i+1)
   Compiler_append_op_w_short(comp,NATV,result(0))
@@ -458,6 +458,7 @@
  @TODO: remove after testing, since operand will not be optional
  @:msg:join(EMPTY_DATA,(,"Invalid operand ",char(c)))
  @Compiler_throw_syntax_err(code,i,msg)
+ $i
 }
 :Compiler_c_expr(comp,code,i){
  $Compiler_c_operand(comp,code,i)
