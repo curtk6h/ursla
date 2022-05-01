@@ -42,9 +42,19 @@
 :AT_SIGN:40
 :CURLY_BRACE_L:7b
 :CURLY_BRACE_R:7d
-:PLUS_SIGN:2b
-:MINUS_SIGN:2d
+:PLUS:2b
+:MINUS:2d
 :DOUBLE_QUOTE:22
+:SINGLE_QUOTE:27
+:COMMA:2c
+:BACKSLASH:5c
+:PAREN_L:28
+:PAREN_R:29
+:COLON:3a
+:SEMICOLON:3b
+:LT:3c
+:EQUAL:3d
+:GT:3e
 
 :_result:,NIL
 :set_result(x){
@@ -65,7 +75,6 @@
 :char(x){
  $get(_char_map,x)
 }
-
 :digit(x){
  $get(_char_map,x+30)
 }
@@ -202,19 +211,21 @@
 }
 :last(a,i,j,x){
  ?j>i{
+  :j:j-1
   ?is(get(a,j),x){
    $j
   }
-  :j:j-1
  }^
  $-1
 }
-:pad(t,x,n){
+:pad(t,c,n){
+ :padded:data(n+len(t))
+ copy(padded,t,n,0,len(t))
  ?n>0{
-  :t:x+t
   :n:n-1
+  set(padded,n,c)
  }^
- $t
+ $padded
 }
 :has(a,x){
  $first(a,0,len(a),x)>-1
@@ -291,6 +302,8 @@
 @Compiler
 :LODI:69
 :LODS:73
+:LODA:61
+:NATV:5c
 :DROP:3b
 :Compiler_vmcode(comp){ $get(comp,0) }
 :Compiler_vmcode_idx(comp){ $get(comp,1) }
@@ -343,10 +356,16 @@
 :Compiler_append_op_w_addr:Compiler_append_op_w_short
 :Compiler_throw_syntax_err(code,i,msg){
  :line_num:count(code,0,i,NL)+1
- :line_start:last(code,0,i,NL)+1
+ :line_start:last(code,i,0,NL)+1
  :line_end:first(code,i,len(code),NL)
+ out("ERROR ON LINE:")
+ out(line_start)
+ out(",")
+ out(line_end)
+ out(",")
+ out(i)
  :line:dchunk(code,line_start,line_end-line_start)
- :line_arrow:pad("^"," ",i-line_start)
+ :line_arrow:pad("^",SPACE,i-line_start)
  !joinlines(,join(EMPTY_DATA,(,"Syntax error on line ",itod(line_num),": ",msg)),line,line_arrow)
 }
 :Compiler_parse_char(code,i,m){
@@ -366,9 +385,9 @@
 :Compiler_parse_int(code,i){
  :s:1
  :c:get(code,i)
- ?c=PLUS_SIGN{
+ ?c=PLUS{
   :i:i+1
- }:?c=MINUS_SIGN{
+ }:?c=MINUS{
   :s:-1
   :i:i+1
  }
@@ -396,10 +415,11 @@
  Compiler_append_op_w_short(comp,LODI,result(0))
  $i
 }
+:Compiler_c_expr @ tbd
 :Compiler_c_operand(comp,code,i){
  :c:get(code,i)
  @integer
- ?is_digit(c)|(c=PLUS_SIGN)|(c=MINUS_SIGN){
+ ?is_digit(c)|(c=PLUS)|(c=MINUS){
   $Compiler_c_integer(comp,code,i)
  }
  @text
@@ -412,10 +432,35 @@
   }^
   Compiler_append_op_w_short(comp,LODS,j-i)
   Compiler_append_data(comp,code,i,j)
-  Compiler_append_op(comp,DROP)
   $j+1
  }
- $i
+ @group
+ ?c=PAREN_L{
+  :i:Compiler_c_expr(comp,code,i+1)
+  $Compiler_parse_char(code,i,PAREN_R)
+ }
+ @array
+ ?c=COMMA{
+  :n:0
+  ?get(code,i)=COMMA{
+   :i:Compiler_c_expr(comp,code,i+1)
+   :n:n+1
+  }^
+  Compiler_append_op_w_short(comp,LODA,n)
+  $i
+ }
+ @native
+ ?c=BACKSLASH{
+  :i:Compiler_parse_int(code,i+1)
+  Compiler_append_op_w_short(comp,NATV,result(0))
+  $i
+ }
+ @TODO: remove after testing, since operand will not be optional
+ @:msg:join(EMPTY_DATA,(,"Invalid operand ",char(c)))
+ @Compiler_throw_syntax_err(code,i,msg)
+}
+:Compiler_c_expr(comp,code,i){
+ $Compiler_c_operand(comp,code,i)
 }
 :Compiler_c_statement(comp,code,i){
  :i:Compiler_skip_ws(code,i)
@@ -426,7 +471,7 @@
   }^
  }:{
   @for testing only v
-  :i:Compiler_c_operand(comp,code,i)
+  :i:Compiler_c_expr(comp,code,i)
   @for testing only ^
  }
  ?Compiler_debug(comp)&(get(code,i)=NL){

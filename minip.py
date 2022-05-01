@@ -674,8 +674,8 @@ try:
         vm_code = Compiler(debug=True).compile(code)
     else:
         vm_code = code
-    #print(vm_code)
-    #print("{} bytes".format(len(vm_code)))
+    print(vm_code)
+    print("{} bytes".format(len(vm_code)))
     exec_bytes = vm.compile_exec_bytes(vm_code)
     vm.exec(exec_bytes)
 except Exception as e:
