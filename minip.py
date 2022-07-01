@@ -13,7 +13,7 @@
 
 import sys, time
 
-VM_NOP  = ' '
+
 VM_LODI = 'i'
 VM_LODS = 's'
 VM_LODA = 'a'

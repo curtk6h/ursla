@@ -56,9 +56,9 @@
 :EQUAL:3d
 :GT:3e
 
-:_result:,NIL
-:set_result(x){
- $set(_result,0,x)
+:_result:,NIL,NIL,NIL,NIL,NIL
+:set_result(i,x){
+ $set(_result,i,x)
 }
 :result(i){
  $get(_result,i)
@@ -107,6 +107,9 @@
 :dclone(d){
  $copy(data(len(d)),d,0,0,len(d))
 }
+:dresize(d,n){
+ $copy(array(n),d,0,0,len(d))
+}
 :dconcat(a,b){
  :c:data(len(a)+len(b))
  $copy(c,a,0,0,len(a))
@@ -145,6 +148,9 @@
 }
 :aclone(a){
  $copy(array(len(a)),a,0,0,len(a))
+}
+:aresize(a,n){
+ $copy(array(n),a,0,0,len(a))
 }
 :aconcat(a,b){
  :c:array(len(a)+len(b))
@@ -200,16 +206,16 @@
  }^
  $n
 }
-:first(a,i,j,x){
+:find(a,i,j,x){
  ?i<j{
   ?is(get(a,i),x){
    $i
   }
   :i:i+1
- }
+ }^
  $-1
 }
-:last(a,i,j,x){
+:find_reverse(a,i,j,x){
  ?j>i{
   :j:j-1
   ?is(get(a,j),x){
@@ -228,7 +234,7 @@
  $padded
 }
 :has(a,x){
- $first(a,0,len(a),x)>-1
+ $find(a,0,len(a),x)>-1
 }
 :map(a,f){
  :i:0
@@ -265,18 +271,37 @@
 @Vector
 :Vector_v(vec){ $get(vec,0) }
 :Vector_n(vec){ $get(vec,1) }
-:Vector_capacity(vec){ $get(vec,2) }
+:Vector_capacity(vec){ $len(get(vec,0)) }
+:Vector_set_v(vec,v){ $set(vec,0,v) }
+:Vector_set_n(vec,n){ $set(vec,1,n) }
+:Vector_set_capacity(vec,capacity){
+ $set(vec,0,aresize(get(vec,0),capacity))
+}
 :Vector_get(vec,i){
  $get(get(vec,0),i)
 }
 :Vector_set(vec,i,x){
- $set(get(vec,0),i,x)
+ set(get(vec,0),i,x)
+ $vec
+}
+:Vector_last(vec){
+ $Vector_get(vec,Vector_n(vec)-1)
+}
+:Vector_pop(vec){
+ :i:Vector_n(vec)-1
+ :x:Vector_get(vec,i)
+ Vector_set_n(vec,i)
+ $vec
 }
 :Vector_append(vec,x){
- :v:get(vec,0)
- :n:get(vec,1)
- set(vec,1,n+1)
- set(v,n,x)
+ :v:Vector_v(vec)
+ :i:Vector_n(vec)
+ :capacity:len(v)
+ ?i=capacity{
+  Vector_set_v(vec,aresize(v,capacity*2))
+ }
+ Vector_set_n(vec,i+1)
+ Vector_set(vec,i,x)
  $vec
 }
 :Vector_output_chars(vec){
@@ -290,27 +315,43 @@
  $vec
 }
 :Vector_init(vec,capacity){
- set(vec,0,array(capacity))
- set(vec,1,0)
- set(vec,2,capacity)
+ Vector_set_v(vec,array(capacity))
+ Vector_set_n(vec,0)
  $vec
 }
 :Vector(capacity){
- $Vector_init(array(3),capacity)
+ $Vector_init(array(2),capacity)
 }
 
 @Compiler
+:NOP:20
 :LODI:69
 :LODS:73
 :LODA:61
+:LODR:73
 :NATV:5c
 :DROP:3b
+:GETL:23
+:GETG:67
+:SETL:3a
+:JUMP:6a
+:JZ:3f
+:JSR:7b
+:ARGS:70
+:RET:2
+:TRY:74
+:ETRY:54
+:THRO:21
+:Compiler_c_expr @tbd
+:Compiler_c_code_block @tbd
 :Compiler_vmcode(comp){ $get(comp,0) }
 :Compiler_vmcode_idx(comp){ $get(comp,1) }
 :Compiler_set_vmcode_idx(comp,i){ $set(comp,1,i) }
 :Compiler_debug(comp){ $get(comp,2) }
 :Compiler_words(comp){ $get(comp,3) }
 :Compiler_vs(comp){ $get(comp,4) }
+:Compiler_gv(comp){ $Vector_get(get(comp,4),0) }
+:Compiler_lv(comp){ $Vector_last(get(comp,4)) }
 :Compiler_encode_byte(comp,i,x){
  :vmcode:Compiler_vmcode(comp)
  set(vmcode,i+0,hex_digit(unpack(x,+f0)))
@@ -356,14 +397,10 @@
 :Compiler_append_op_w_addr:Compiler_append_op_w_short
 :Compiler_throw_syntax_err(code,i,msg){
  :line_num:count(code,0,i,NL)+1
- :line_start:last(code,i,0,NL)+1
- :line_end:first(code,i,len(code),NL)
- out("ERROR ON LINE:")
- out(line_start)
- out(",")
- out(line_end)
- out(",")
- out(i)
+ :line_start:find_reverse(code,0,i,NL)+1
+ ?line_start=-1{ :line_start:0 } 
+ :line_end:find(code,i,len(code),NL)
+ ?line_end=-1{ :line_end:len(code) }
  :line:dchunk(code,line_start,line_end-line_start)
  :line_arrow:pad("^",SPACE,i-line_start)
  !joinlines(,join(EMPTY_DATA,(,"Syntax error on line ",itod(line_num),": ",msg)),line,line_arrow)
@@ -407,15 +444,43 @@
   :msg:join(EMPTY_DATA,(,"Expected int got ",get(code,i)))
   Compiler_throw_syntax_err(code,i,msg)
  }
- set_result(x*s)
+ set_result(0,x*s)
  $j
+}
+:Compiler_parse_symbol(comp,code,i){
+ ?~is_word(get(code,i)){
+  :msg:join(EMPTY_DATA,(,"Expected wordchar got ",char(get(code,i))))
+  Compiler_throw_syntax_err(code,i,msg) 
+ }
+ :n:0
+ ?is_word(get(code,i+n)){
+  :n:n+1
+ }^
+ :word:dchunk(code,i,n)
+ :words:Compiler_words(comp)
+ :words_v:Vector_v(words)
+ :words_n:Vector_n(words)
+ :symbol:find(words_v,0,words_n,word)
+ ?symbol=-1{
+  :symbol:words_n
+  Vector_append(words,word)
+ }
+ set_result(0,symbol)
+ $i+n
+}
+:Compiler_parse_eol(comp,code,i){
+ :c:get(code,i)
+ ?(c=NL)|(c=SPACE){
+  $i+1
+ }
+ :msg:join(EMPTY_DATA,(,"Expected end-of-line got '",char(c),"'"))
+ Compiler_throw_syntax_err(code,i,msg)
 }
 :Compiler_c_integer(comp,code,i){
  :i:Compiler_parse_int(code,i)
  Compiler_append_op_w_short(comp,LODI,result(0))
  $i
 }
-:Compiler_c_expr @ tbd
 :Compiler_c_operand(comp,code,i){
  :c:get(code,i)
  @integer
@@ -433,6 +498,24 @@
   Compiler_append_op_w_short(comp,LODS,j-i)
   Compiler_append_data(comp,code,i,j)
   $j+1
+ }
+ @variable
+ ?is_word(c){
+  :i:Compiler_parse_symbol(comp,code,i)
+  :symbol:result(0)
+  :lv:Compiler_lv(comp)
+  :var_i:find(lv,0,Vector_n(lv),symbol)
+  ?var_i>-1{
+   Compiler_append_op_w_byte(comp,GETL,var_i)
+   $i
+  }
+  :gv:Compiler_gv(comp)
+  :var_i:find(gv,0,Vector_n(gv),symbol)
+  ?var_i>-1{
+   Compiler_append_op_w_byte(comp,GETG,var_i)
+   $i
+  }
+  Compiler_throw_syntax_err(code,i,"Variable not defined")
  }
  @group
  ?c=PAREN_L{
@@ -466,10 +549,57 @@
 :Compiler_c_statement(comp,code,i){
  :i:Compiler_skip_ws(code,i)
  :c:get(code,i)
+ @annotation
  ?c=AT_SIGN{
   ?~(get(code,i)=NL){
    :i:i+1
   }^
+ @function or variable assignment
+ }:?c=COLON{
+  :i:Compiler_parse_symbol(comp,code,i+1)
+  :symbol:result(0)   
+  :lv:Compiler_lv(comp)
+  :lv_n:Vector_n(lv)
+  :lv_i:find(Vector_v(lv),0,lv_n,symbol)
+  ?lv_i=-1{
+   :lv_i:lv_n
+   Vector_append(lv,symbol)
+  }
+  :c:get(code,i)
+  ?~((c=COLON)|(c=PAREN_L)|(c=CURLY_BRACE_L)){
+   @ variable declaration, nothing else to do
+  }:{
+   ?c=COLON{
+    @ simple assignment
+    :i:Compiler_c_expr(comp,code,i+1)
+   }:{
+    @ function definition
+    :vs:Compiler_vs(comp)
+    :top:Compiler_vmcode_idx(comp)
+    Compiler_append_op_w_addr(comp,JUMP,0)
+    :fv:Vector(+ff)
+    Vector_append(vs,fv)
+    :n:0
+    ?get(code,i)=PAREN_L{
+     :i:i+1
+     ?~(get(code,i)=PAREN_R){
+      :i:Compiler_parse_symbol(comp,code,i) 
+      Vector_append(fv,result(0))
+      ?get(code,i)=COMMA{
+        :i:i+1
+      }
+      :n:n+1
+     }^
+     :i:i+1
+     Compiler_append_op_w_byte(comp,ARGS,n)
+    }
+    :i:Compiler_c_code_block(comp,code,i)
+    Vector_pop(vs)
+    Compiler_encode_short(comp,top+1,Compiler_vmcode_idx(comp))
+    Compiler_append_op_w_addr(comp,LODR,top+5)
+   }
+   Compiler_append_op_w_byte(comp,SETL,lv_i)
+  }
  }:{
   @for testing only v
   :i:Compiler_c_expr(comp,code,i)
@@ -478,7 +608,7 @@
  ?Compiler_debug(comp)&(get(code,i)=NL){
    Compiler_append_op(comp,NL)
  }
- $Compiler_parse_char(code,i,NL)
+ $Compiler_parse_eol(comp,code,i)
 }
 :Compiler_c_code_block(comp,code,i){
  :i:Compiler_parse_char(code,i,CURLY_BRACE_L)
@@ -505,11 +635,11 @@
  $words
 }
 :Compiler_init_vs(vs){
- :vars:Vector(100)
- Vector_append(vars,0)
- Vector_append(vars,1)
- Vector_append(vars,2)
- Vector_append(vs,vars)
+ :gv:Vector(100) @todo: globals should be > than 256
+ Vector_append(gv,0)
+ Vector_append(gv,1)
+ Vector_append(gv,2)
+ Vector_append(vs,gv)
  $vs
 }
 :Compiler_init(comp){
@@ -524,7 +654,11 @@
  $Compiler_init(array(5))
 }
 :comp:Compiler()
-Compiler_compile(comp,in())
+?{
+ Compiler_compile(comp,in())
+}:{
+ out(ERR)
+}
 Compiler_output_chars(comp)
 out("done")
 }
