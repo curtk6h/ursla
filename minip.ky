@@ -36,26 +36,29 @@
 
 :EMPTY_DATA:""
 :EMPTY_ARRAY:array(0)
+
 :NL:0a
-:SPACE:20
 :TAB:09
-:AT_SIGN:40
-:CURLY_BRACE_L:7b
-:CURLY_BRACE_R:7d
-:PLUS:2b
-:MINUS:2d
+:SPACE:20
+:BANG:21
 :DOUBLE_QUOTE:22
-:SINGLE_QUOTE:27
-:COMMA:2c
 :DOLLAR_SIGN:24
-:BACKSLASH:5c
+:SINGLE_QUOTE:27
 :PAREN_L:28
 :PAREN_R:29
+:PLUS:2b
+:COMMA:2c
+:MINUS:2d
 :COLON:3a
 :SEMICOLON:3b
 :LT:3c
 :EQUAL:3d
 :GT:3e
+:AT_SIGN:40
+:BACKSLASH:5c
+:CURLY_BRACE_L:7b
+:CURLY_BRACE_R:7d
+:TILDA:7e
 
 :_result:,NIL,NIL,NIL,NIL,NIL
 :set_result(i,x){
@@ -72,7 +75,7 @@
  }^
  $char_map
 }
-:_char_map:_build_char_map(array(128))
+:_char_map:_build_char_map(array(80))
 :char(x){
  $get(_char_map,x)
 }
@@ -200,7 +203,7 @@
 :count(a,i,j,x){
  :n:0
  ?i<j{
-  ?is(get(a,i),x){
+  ?get(a,i)=x{
    :n:n+1
   }
   :i:i+1
@@ -209,7 +212,7 @@
 }
 :find(a,i,j,x){
  ?i<j{
-  ?is(get(a,i),x){
+  ?get(a,i)=x{
    $i
   }
   :i:i+1
@@ -219,7 +222,7 @@
 :find_reverse(a,i,j,x){
  ?j>i{
   :j:j-1
-  ?is(get(a,j),x){
+  ?get(a,j)=x{
    $j
   }
  }^
@@ -343,6 +346,7 @@
 :TRY:74
 :ETRY:54
 :THRO:21
+:NEG:7e
 :Compiler_c_expr @tbd
 :Compiler_c_code_block @tbd
 :Compiler_vmcode(comp){ $get(comp,0) }
@@ -396,6 +400,17 @@
  $Compiler_set_vmcode_idx(comp,vmcode_i)
 }
 :Compiler_append_op_w_addr:Compiler_append_op_w_short
+:_temp_swap_chunk:array(+ff)
+:Compiler_swap_adjacent_end_chunks(comp,ai,bi){
+ :vmcode:Compiler_vmcode(comp)
+ :vmcode_n:Compiler_vmcode_idx(comp) 
+ :an:bi-ai
+ :bn:vmcode_n-bi
+ :end_chunk:dchunk(vmcode,bi,bn)
+ copy(vmcode,vmcode,ai+bn,ai,an)
+ copy(vmcode,end_chunk,ai,0,bn)
+ $comp
+}
 :Compiler_throw_syntax_err(code,i,msg){
  :line_num:count(code,0,i,NL)+1
  :line_start:find_reverse(code,0,i,NL)+1
@@ -505,13 +520,13 @@
   :i:Compiler_parse_symbol(comp,code,i)
   :symbol:result(0)
   :lv:Compiler_lv(comp)
-  :var_i:find(lv,0,Vector_n(lv),symbol)
+  :var_i:find(Vector_v(lv),0,Vector_n(lv),symbol)
   ?var_i>-1{
    Compiler_append_op_w_byte(comp,GETL,var_i)
    $i
   }
   :gv:Compiler_gv(comp)
-  :var_i:find(gv,0,Vector_n(gv),symbol)
+  :var_i:find(Vector_v(gv),0,Vector_n(gv),symbol)
   ?var_i>-1{
    Compiler_append_op_w_byte(comp,GETG,var_i)
    $i
@@ -544,8 +559,40 @@
  @Compiler_throw_syntax_err(code,i,msg)
  $i
 }
+:Compiler_c_unary_op(comp,code,i){
+  :neg:F
+  ?get(code,i)=TILDA{
+    :neg:~neg
+    :i:i+1
+  }^
+  :operand_start:Compiler_vmcode_idx(comp)
+  :i:Compiler_c_operand(comp,code,i)
+  ?get(code,i)=PAREN_L{
+      :args_start:Compiler_vmcode_idx(comp)
+      :i:i+1
+      ?~(get(code,i)=PAREN_R){
+        :i:Compiler_c_expr(comp,code,i)
+        ?get(code,i)=COMMA{
+          :i:i+1
+        }
+      }^
+      Compiler_swap_adjacent_end_chunks(comp,operand_start,args_start)
+      Compiler_append_op(comp,JSR)
+      :i:i+1
+  }^
+  ?neg{
+   Compiler_append_op(comp,NEG)
+  }
+ $i
+}
 :Compiler_c_expr(comp,code,i){
- $Compiler_c_operand(comp,code,i)
+ :i:Compiler_c_unary_op(comp,code,i)
+ ?has("&|^=<>+-*/%",get(code,i)){
+  :op:get(code,i)
+  :i:Compiler_c_unary_op(comp,code,i+1)
+  Compiler_append_op_w_short(comp,op)
+ }^
+ $i
 }
 :Compiler_c_statement(comp,code,i){
  :i:Compiler_skip_ws(code,i)
@@ -601,13 +648,23 @@
    }
    Compiler_append_op_w_byte(comp,SETL,lv_i)
   }
+ @function call
+ }:?is_word(c){
+  :i:Compiler_c_expr(comp,code,i)
+  Compiler_append_op(comp,DROP)
  @return
  }:?c=DOLLAR_SIGN{
   :i:Compiler_c_expr(comp,code,i+1)
   Compiler_append_op(comp,RET)
+ @throw
+ }:?c=BANG{
+  :i:Compiler_c_expr(comp,code,i+1)
+  Compiler_append_op(comp,THRO)
  }:{
+  @empty line is valid
+
   @for testing only v
-  :i:Compiler_c_expr(comp,code,i)
+  @ :i:Compiler_c_expr(comp,code,i)
   @for testing only ^
  }
  ?Compiler_debug(comp)&(get(code,i)=NL){
@@ -644,6 +701,7 @@
  Vector_append(gv,0)
  Vector_append(gv,1)
  Vector_append(gv,2)
+ Vector_append(gv,3)
  Vector_append(vs,gv)
  $vs
 }
