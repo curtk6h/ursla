@@ -370,18 +370,19 @@ class VM(object):
         return " -> ".join(str(self.err_line_num(vm_code, i))
                            for i in range(len(self.frame_stack)))
 
-    def exec_sub(self, exec_code, ip, *args):
-        fs_end = len(self.frame_stack)
-        self.frame_stack.append(ip)
+    def exec_sub(self, exec_bytes, ip, *args):
+        fs = self.frame_stack
+        fs_end = len(fs)
+        fs.append(ip)
         try:
             while len(fs) != fs_end:
                 ip = self.ops[exec_bytes[ip]](exec_bytes, ip+1)
         finally:
-            self.frame_stack[-1] = ip
+            fs[-1] = ip
         return self.operand_stack.pop()
 
-    def exec(self, exec_code, ip=0):
-        ip_end = len(exec_code)
+    def exec(self, exec_bytes, ip=0):
+        ip_end = len(exec_bytes)
         try:
             while ip != ip_end:
                 ip = self.ops[exec_bytes[ip]](exec_bytes, ip+1)
@@ -674,10 +675,9 @@ try:
         vm_code = Compiler(debug=True).compile(code)
     else:
         vm_code = code
-    print(vm_code)
-    print("{} bytes".format(len(vm_code)))
-    exec_bytes = vm.compile_exec_bytes(vm_code)
-    vm.exec(exec_bytes)
+    #print(vm_code)
+    #print("{} bytes".format(len(vm_code)))
+    vm.exec(vm.compile_exec_bytes(vm_code))
 except Exception as e:
     import traceback; traceback.print_exc()
     sys.stderr.write("Error on line {}".format(vm.err_line_num_path(vm_code)))

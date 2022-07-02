@@ -332,7 +332,7 @@
 :LODI:69
 :LODS:73
 :LODA:61
-:LODR:73
+:LODR:72
 :NATV:5c
 :DROP:3b
 :GETL:23
@@ -548,16 +548,14 @@
   Compiler_append_op_w_short(comp,LODA,n)
   $i
  }
- @native (UNTESTED)
+ @native
  ?c=BACKSLASH{
   :i:Compiler_parse_int(code,i+1)
-  Compiler_append_op_w_short(comp,NATV,result(0))
+  Compiler_append_op_w_byte(comp,NATV,result(0))
   $i
  }
- @TODO: remove after testing, since operand will not be optional
- @:msg:join(EMPTY_DATA,(,"Invalid operand ",char(c)))
- @Compiler_throw_syntax_err(code,i,msg)
- $i
+ :msg:join(EMPTY_DATA,(,"Invalid operand ",char(c)))
+ Compiler_throw_syntax_err(code,i,msg)
 }
 :Compiler_c_unary_op(comp,code,i){
   :neg:F
@@ -662,10 +660,6 @@
   Compiler_append_op(comp,THRO)
  }:{
   @empty line is valid
-
-  @for testing only v
-  @ :i:Compiler_c_expr(comp,code,i)
-  @for testing only ^
  }
  ?Compiler_debug(comp)&(get(code,i)=NL){
    Compiler_append_op(comp,NL)
@@ -680,13 +674,11 @@
  $i+1
 }
 :Compiler_compile(comp,code){
- :vmcode:Compiler_vmcode(comp)
- :i:0
- :i:Compiler_c_code_block(comp,code,i)
+ Compiler_c_code_block(comp,code,0)
  $comp
 }
 :Compiler_output_chars(comp){
- out(Compiler_vmcode(comp))
+ out(dchunk(Compiler_vmcode(comp),0,Compiler_vmcode_idx(comp)))
  $comp
 }
 :Compiler_init_words(words){
@@ -723,5 +715,4 @@
  out(ERR)
 }
 Compiler_output_chars(comp)
-out("done")
 }
