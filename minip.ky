@@ -47,6 +47,7 @@
 :DOUBLE_QUOTE:22
 :SINGLE_QUOTE:27
 :COMMA:2c
+:DOLLAR_SIGN:24
 :BACKSLASH:5c
 :PAREN_L:28
 :PAREN_R:29
@@ -338,7 +339,7 @@
 :JZ:3f
 :JSR:7b
 :ARGS:70
-:RET:2
+:RET:24
 :TRY:74
 :ETRY:54
 :THRO:21
@@ -600,6 +601,10 @@
    }
    Compiler_append_op_w_byte(comp,SETL,lv_i)
   }
+ @return
+ }:?c=DOLLAR_SIGN{
+  :i:Compiler_c_expr(comp,code,i+1)
+  Compiler_append_op(comp,RET)
  }:{
   @for testing only v
   :i:Compiler_c_expr(comp,code,i)
