@@ -357,8 +357,13 @@ def ffb(x):
 class VM(object):
     def __init__(self):
         self.operand_stack = []
-        self.var_stack = [None, None, 0, -1] + ([None] * (256-4) * 16)
+        self.var_stack = [None] * 256 * 32
+        self.var_stack[0] = None
+        self.var_stack[1] = None
+        self.var_stack[2] = 0
+        self.var_stack[3] = -1
         self.frame_stack = [-1]
+        #self.operand_offset_stack = [0]
         self.err_stack = []
         self.start_time = time.time()
         self._init_ops()
@@ -463,6 +468,11 @@ class VM(object):
             return ip + 4
         def _drop(exec_bytes, ip):
             os.pop()
+            # if len(os) != self.operand_offset_stack[-1]:
+            #     print("WARNING: unbalanced stack {} vs {}".format(
+            #         len(os),
+            #         self.operand_offset_stack[-1]
+            #     ))
             return ip
         def _eq(exec_bytes, ip):
             os[-1] = -1 if os[-2] == os.pop() else 0
@@ -509,11 +519,13 @@ class VM(object):
         def _jsr(exec_bytes, ip):
             fs[-1] = ip
             fs.append(-1)
+            #self.operand_offset_stack.append(len(os)-1)
             return os.pop()
         def _args(exec_bytes, ip):
             var_off = (len(fs)-1) * 256
             for i in range(var_off, var_off+exec_bytes[ip])[::-1]:
                 vs[i] = os.pop()
+            #self.operand_offset_stack[-1] = len(os)
             return ip + 1
         def _setl(exec_bytes, ip):
             var_off = (len(fs)-1) * 256
@@ -528,6 +540,7 @@ class VM(object):
             return ip + 2
         def _ret(exec_bytes, ip):
             fs.pop()
+            #self.operand_offset_stack.pop()
             return fs[-1]
         def _try(exec_bytes, ip):
             self.err_stack.append((
@@ -572,11 +585,11 @@ class VM(object):
             return ip
         def _pack(exec_bytes, ip):
             value, mask = os.pop(), os.pop()
-            os[-1] = ((os[-1]&~mask)|(value<<ffb(mask)))
+            os[-1] = uint16((os[-1]&~mask)|(value<<ffb(mask)))
             return ip
         def _unpack(exec_bytes, ip):
             mask = os.pop()
-            os[-1] = ((os[-1]&mask)>>ffb(mask))
+            os[-1] = ((uint16(os[-1])&mask)>>ffb(mask))
             return ip
         def _clamp(exec_bytes, ip):
             max_, min_ = os.pop(), os.pop()

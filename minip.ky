@@ -54,6 +54,7 @@
 :LT:3c
 :EQUAL:3d
 :GT:3e
+:QUESTION_MARK:3f
 :AT_SIGN:40
 :BACKSLASH:5c
 :CURLY_BRACE_L:7b
@@ -266,10 +267,10 @@
  $((x>2f)&(x<3a))|((x>60)&(x<67))
 }
 :is_alpha(x){
- $((x>40)&(x<5b))|((x>60)&(x<79))
+ $((x>40)&(x<5b))|((x>60)&(x<7b))
 }
 :is_word(x){
- $((x>40)&(x<5b))|((x>60)&(x<79))|((x>2f)&(x<3a))|(x=5f)
+ $((x>40)&(x<5b))|((x>60)&(x<7b))|((x>2f)&(x<3a))|(x=5f)
 }
 
 @Vector
@@ -345,6 +346,7 @@
 :RET:24
 :TRY:74
 :ETRY:54
+:CARET:5e
 :THRO:21
 :NEG:7e
 :Compiler_c_expr @tbd
@@ -400,7 +402,6 @@
  $Compiler_set_vmcode_idx(comp,vmcode_i)
 }
 :Compiler_append_op_w_addr:Compiler_append_op_w_short
-:_temp_swap_chunk:array(+ff)
 :Compiler_swap_adjacent_end_chunks(comp,ai,bi){
  :vmcode:Compiler_vmcode(comp)
  :vmcode_n:Compiler_vmcode_idx(comp) 
@@ -566,17 +567,17 @@
   :operand_start:Compiler_vmcode_idx(comp)
   :i:Compiler_c_operand(comp,code,i)
   ?get(code,i)=PAREN_L{
-      :args_start:Compiler_vmcode_idx(comp)
-      :i:i+1
-      ?~(get(code,i)=PAREN_R){
-        :i:Compiler_c_expr(comp,code,i)
-        ?get(code,i)=COMMA{
-          :i:i+1
-        }
-      }^
-      Compiler_swap_adjacent_end_chunks(comp,operand_start,args_start)
-      Compiler_append_op(comp,JSR)
-      :i:i+1
+    :i:i+1
+    :args_start:Compiler_vmcode_idx(comp)
+    ?~(get(code,i)=PAREN_R){
+      :i:Compiler_c_expr(comp,code,i)
+      ?get(code,i)=COMMA{
+        :i:i+1
+      }
+    }^
+    :i:i+1 @ consume )
+    Compiler_swap_adjacent_end_chunks(comp,operand_start,args_start)
+    Compiler_append_op(comp,JSR)
   }^
   ?neg{
    Compiler_append_op(comp,NEG)
@@ -588,18 +589,49 @@
  ?has("&|^=<>+-*/%",get(code,i)){
   :op:get(code,i)
   :i:Compiler_c_unary_op(comp,code,i+1)
-  Compiler_append_op_w_short(comp,op)
+  Compiler_append_op(comp,op)
  }^
  $i
 }
 :Compiler_c_statement(comp,code,i){
- :i:Compiler_skip_ws(code,i)
  :c:get(code,i)
- @annotation
- ?c=AT_SIGN{
-  ?~(get(code,i)=NL){
+ @if/while/try
+ ?c=QUESTION_MARK{
+  ?get(code,i+1)=CURLY_BRACE_L{
+   :here:Compiler_vmcode_idx(comp)
+   Compiler_append_op_w_addr(comp,TRY,0)
+   :i:Compiler_c_code_block(comp,code,i+1)
+   Compiler_append_op(comp,ETRY)
+  }:{
+    :top:Compiler_vmcode_idx(comp)
+    :i:Compiler_c_expr(comp,code,i+1)
+    :here:Compiler_vmcode_idx(comp)
+    Compiler_append_op_w_addr(comp,JZ,0)
+    :i:Compiler_c_code_block(comp,code,i)
+  }
+  ?get(code,i)=COLON{
+   ?get(code,i)=COLON{
+    :there:here
+    :i:i+1
+    :here:Compiler_vmcode_idx(comp)
+    Compiler_append_op_w_addr(comp,JUMP,0)
+    Compiler_encode_short(comp,there+1,Compiler_vmcode_idx(comp))
+    ?get(code,i)=QUESTION_MARK{
+     :i:Compiler_c_expr(comp,code,i+1)
+     :there:Compiler_vmcode_idx(comp)
+     Compiler_append_op_w_addr(comp,JZ,0)
+     :i:Compiler_c_code_block(comp,code,i)
+     Compiler_encode_short(comp,here+1,Compiler_vmcode_idx(comp))
+     :here:there
+    }:{
+     :i:Compiler_c_code_block(comp,code,i)
+    }
+   }^
+  }:?get(code,i)=CARET{
    :i:i+1
-  }^
+   Compiler_append_op_w_addr(comp,JUMP,top)
+  }
+  Compiler_encode_short(comp,here+1,Compiler_vmcode_idx(comp))
  @function or variable assignment
  }:?c=COLON{
   :i:Compiler_parse_symbol(comp,code,i+1)
@@ -658,6 +690,11 @@
  }:?c=BANG{
   :i:Compiler_c_expr(comp,code,i+1)
   Compiler_append_op(comp,THRO)
+ @annotation
+ }:?c=AT_SIGN{
+  ?~(get(code,i)=NL){
+   :i:i+1
+  }^
  }:{
   @empty line is valid
  }

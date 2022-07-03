@@ -28,7 +28,7 @@
  }^
  $char_map
 }
-:_char_map:_build_char_map(array(128))
+:_char_map:_build_char_map(array(80))
 :char(x){
  $get(_char_map,x)
 }
@@ -397,12 +397,6 @@ assert(flatten(,(,0),(,1,2,3),(,4,5,6,7,8,9))=(,0,1,2,3,4,5,6,7,8,9))
  set_result(x*s)
  $j
 }
-out("parsehexdigit:")
-:ii:parse_int("-7fd1 ",0)
-out("ii:")
-out(itod(ii))
-out("foo:")
-out(result(0))
 
 out(NL)
 out("123456789helloworld345256105dynamic <- EXPECTED")
