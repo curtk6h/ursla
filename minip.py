@@ -39,7 +39,6 @@ class VM(object):
         self.var_stack[2] = 0
         self.var_stack[3] = -1
         self.frame_stack = [-1]
-        #self.operand_offset_stack = [0]
         self.err_stack = []
         self.start_time = time.time()
         self._init_ops()
@@ -144,11 +143,6 @@ class VM(object):
             return ip + 4
         def _drop(exec_bytes, ip):
             os.pop()
-            # if len(os) != self.operand_offset_stack[-1]:
-            #     print("WARNING: unbalanced stack {} vs {}".format(
-            #         len(os),
-            #         self.operand_offset_stack[-1]
-            #     ))
             return ip
         def _eq(exec_bytes, ip):
             os[-1] = -1 if os[-2] == os.pop() else 0
@@ -195,13 +189,11 @@ class VM(object):
         def _jsr(exec_bytes, ip):
             fs[-1] = ip
             fs.append(-1)
-            #self.operand_offset_stack.append(len(os)-1)
             return os.pop()
         def _args(exec_bytes, ip):
             var_off = (len(fs)-1) * 256
             for i in range(var_off, var_off+exec_bytes[ip])[::-1]:
                 vs[i] = os.pop()
-            #self.operand_offset_stack[-1] = len(os)
             return ip + 1
         def _setl(exec_bytes, ip):
             var_off = (len(fs)-1) * 256
@@ -216,7 +208,6 @@ class VM(object):
             return ip + 2
         def _ret(exec_bytes, ip):
             fs.pop()
-            #self.operand_offset_stack.pop()
             return fs[-1]
         def _try(exec_bytes, ip):
             self.err_stack.append((
