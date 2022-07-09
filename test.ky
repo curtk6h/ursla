@@ -295,16 +295,9 @@
   @ array
   :x:100
   :test_array:,3,4,5,x
-  out(test_array)
+  :dynamic_test_array:array(4)
   
-  :dynamic_test_array:array(10)
-  set(dynamic_test_array,0,69)
-  @set(|,1,2)
-  @set(|,2,4)
-  @set(|,3,6)
-  out(get(dynamic_test_array,0)) @ print first entry in bytes
-  
-  @test stdlib
+  @ test stdlib
   assert(is(0,0))
   assert(is(test_str,test_str))
   :test_str_clone:"a test string"
@@ -345,6 +338,16 @@
   assert(default(1,9)=1)
   assert(default(NIL,9)=9)
   assert(flatten(,(,0),(,1,2,3),(,4,5,6,7,8,9))=(,0,1,2,3,4,5,6,7,8,9))
+
+  @ pipe
+  set(dynamic_test_array,0,69)
+  set(|,1,2)
+  set(|,2,4)
+  set(|,3,6)
+  assert(get(dynamic_test_array,0)=69)
+  assert(get(dynamic_test_array,1)=2)
+  assert(get(dynamic_test_array,2)=4)
+  assert(get(dynamic_test_array,3)=6)
   
   @ assert(match(char(7e),"~"))
   @ assert(sfirst("abc",0,"a")=0)
@@ -355,58 +358,6 @@
   @ assert(match(digit(1),"1"))
   @ assert(match(digit(9),"9"))
   
-  :PLUS_SIGN:2b
-  :MINUS_SIGN:2d
-  :_hex_digits:"0123456789abcdef"
-  :hex_digit(x){
-    $get(_hex_digits,x)
-  }
-  :parse_hex_digit(c){
-    :x:c-61
-    ?x<0{ $x+31 }
-    $x+0a
-  }
-  :is_digit(x){
-    $((x>2f)&(x<3a))
-  }
-  :is_hex_digit(x){
-    $((x>2f)&(x<3a))|((x>60)&(x<67))
-  }
-  :_result:,NIL
-  :set_result(x){
-    $set(_result,0,x)
-  }
-  :result(i){
-    $get(_result,i)
-  }
-  :parse_int(code,i){
-    :s:1
-    :c:get(code,i)
-    ?c=PLUS_SIGN{
-      :i:i+1
-    }:?c=MINUS_SIGN{
-      :s:-1
-      :i:i+1
-    }
-    :j:i
-    ?is_hex_digit(get(code,j)){
-      :j:j+1
-    }^
-    :x:0 
-    :n:j-i-1
-    :m:1
-    ?n>-1{
-      :x:x+(parse_hex_digit(get(code,i+n))*m)
-      :m:m*10
-      :n:n-1
-    }^
-    ?i=j{
-      !"Error"
-    }
-    set_result(x*s)
-    $j
-  }
-  
   out(NL)
-  out("123456789helloworld345256105dynamic <- EXPECTED")
+  out("123456789helloworlddynamic <- EXPECTED")
 }

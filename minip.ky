@@ -40,24 +40,30 @@
   :NL:0a
   :TAB:09
   :SPACE:20
-  :BANG:21
-  :DOUBLE_QUOTE:22
+  :EXCLAMATION_MARK:21
+  :QUOTATION_MARK:22
   :DOLLAR_SIGN:24
-  :SINGLE_QUOTE:27
+  :PERCENT_SIGN:25
+  :AMPERSAND:26
+  :APOSTROPHE:27
   :PAREN_L:28
   :PAREN_R:29
-  :PLUS:2b
+  :ASTERISK:2a
+  :PLUS_SIGN:2b
   :COMMA:2c
-  :MINUS:2d
+  :HYPHEN:2d
+  :SLASH:2f
   :COLON:3a
   :SEMICOLON:3b
-  :LT:3c
-  :EQUAL:3d
-  :GT:3e
+  :LT_SIGN:3c
+  :EQ_SIGN:3d
+  :GT_SIGN:3e
   :QUESTION_MARK:3f
   :AT_SIGN:40
   :BACKSLASH:5c
+  :CARET:5e
   :CURLY_BRACE_L:7b
+  :VERTICAL_BAR:7c
   :CURLY_BRACE_R:7d
   :TILDA:7e
   
@@ -347,7 +353,6 @@
   :RET:24
   :TRY:74
   :ETRY:54
-  :CARET:5e
   :THRO:21
   :NEG:7e
   :Compiler_c_expr @tbd
@@ -360,6 +365,10 @@
   :Compiler_vs(comp){ $get(comp,4) }
   :Compiler_gv(comp){ $Vector_get(get(comp,4),0) }
   :Compiler_lv(comp){ $Vector_last(get(comp,4)) }
+  :Compiler_output_chars(comp){
+    out(dchunk(Compiler_jam(comp),0,Compiler_jam_idx(comp)))
+    $comp
+  }
   :Compiler_encode_byte(comp,i,x){
     :jam:Compiler_jam(comp)
     set(jam,i+0,hex_digit(unpack(x,+f0)))
@@ -406,14 +415,18 @@
     set(Compiler_jam(comp),Compiler_jam_idx(comp)-1,RET) @ always will be either DROP or RET
     $comp
   }
-  :Compiler_swap_adjacent_end_chunks(comp,ai,bi){
+  :Compiler_swap_chunks(comp,ai,aj,bi,bj){
+    @ swap chunks a and b, preserving the data between them
     :jam:Compiler_jam(comp)
-    :jam_n:Compiler_jam_idx(comp) 
-    :an:bi-ai
-    :bn:jam_n-bi
-    :end_chunk:dchunk(jam,bi,bn)
-    copy(jam,jam,ai+bn,ai,an)
-    copy(jam,end_chunk,ai,0,bn)
+    :jam_n:Compiler_jam_idx(comp)
+    :an:aj-ai
+    :bn:bj-bi
+    :cn:bj-ai
+    :swapped_chunk:data(cn)
+    copy(swapped_chunk,jam,0,bi,bn)
+    copy(swapped_chunk,jam,bn,aj,bi-aj)
+    copy(swapped_chunk,jam,bj-aj,ai,an)
+    copy(jam,swapped_chunk,ai,0,cn)
     $comp
   }
   :Compiler_throw_syntax_err(code,i,msg){
@@ -443,9 +456,9 @@
   :Compiler_parse_int(code,i){
     :s:1
     :c:get(code,i)
-    ?c=PLUS{
+    ?c=PLUS_SIGN{
       :i:i+1
-    }:?c=MINUS{
+    }:?c=HYPHEN{
       :s:-1
       :i:i+1
     }
@@ -507,15 +520,15 @@
   :Compiler_c_operand(comp,code,i){
     :c:get(code,i)
     @integer
-    ?is_digit(c)|(c=PLUS)|(c=MINUS){
+    ?is_digit(c)|(c=PLUS_SIGN)|(c=HYPHEN){
       $Compiler_c_integer(comp,code,i)
     }
     @text
-    ?c=DOUBLE_QUOTE{
+    ?c=QUOTATION_MARK{
       :i:i+1
       :c:get(code,i)
       :j:i
-      ?~(get(code,j)=DOUBLE_QUOTE){
+      ?~(get(code,j)=QUOTATION_MARK){
         :j:j+1
       }^
       Compiler_append_op_w_short(comp,LODS,j-i)
@@ -561,26 +574,11 @@
       Compiler_append_op_w_byte(comp,NATV,result(0))
       $i
     }
-    @|last
-    ?c=7c{
-      out("last index: ")
-      out(last_stmt_start)
-      out(" - ")
-
-      out("this index: ")
-      out(this_stmt_start)
-      out(" - ")
-
-      out("here: ")
-      out(Compiler_jam_idx(comp)-1)
-      out(" - ")
-
-      @set(Compiler_jam(comp),last_stmt_start-1,NOP)
-      @Compiler_swap_adjacent_end_chunks(comp,last_stmt_start,this_stmt_start)
-      @set(Compiler_jam(comp),Compiler_jam_idx(comp)-1,NOP)
-      @Compiler_set_jam_idx(comp,Compiler_jam_idx(comp)-1) @ pick one or the other, not both of these!
-      @:this_stmt_start:last_stmt_start
-      Compiler_append_op_w_short(comp,LODI,88)
+    @pipe
+    ?c=VERTICAL_BAR{
+      Compiler_swap_chunks(comp,last_stmt_start,this_stmt_start,this_stmt_start,Compiler_jam_idx(comp))
+      Compiler_set_jam_idx(comp,Compiler_jam_idx(comp)-1)
+      :this_stmt_start:last_stmt_start
       $i+1
     }
     :msg:join(EMPTY_DATA,(,"Invalid operand ",char(c)))
@@ -592,6 +590,8 @@
       :neg:~neg
       :i:i+1
     }^
+    @ jamcode offsets must be relative to the encompassing statement,
+    @ since the pipe operator moves code around
     :operand_start:Compiler_jam_idx(comp)-this_stmt_start
     :i:Compiler_c_operand(comp,code,i)
     ?get(code,i)=PAREN_L{
@@ -604,7 +604,7 @@
         }
       }^
       :i:i+1 @ consume )
-      Compiler_swap_adjacent_end_chunks(comp,operand_start+this_stmt_start,args_start+this_stmt_start)
+      Compiler_swap_chunks(comp,operand_start+this_stmt_start,args_start+this_stmt_start,args_start+this_stmt_start,Compiler_jam_idx(comp))
       Compiler_append_op(comp,JSR)
     }^
     ?neg{
@@ -641,9 +641,10 @@
   @         code = self.unary_op(code[1:])
   @         self._write_vm_op(op)
   @     return code
+  :BINARY_OPERATORS:,AMPERSAND,VERTICAL_BAR,CARET,EQ_SIGN,LT_SIGN,GT_SIGN,PLUS_SIGN,HYPHEN,ASTERISK,SLASH,PERCENT_SIGN
   :Compiler_c_expr(comp,code,i){
     :i:Compiler_c_unary_op(comp,code,i)
-    ?has("&|^=<>+-*/%",get(code,i)){
+    ?has(BINARY_OPERATORS,get(code,i)){
       :op:get(code,i)
       :i:Compiler_c_unary_op(comp,code,i+1)
       Compiler_append_op(comp,op)
@@ -764,7 +765,7 @@
       @return
       :i:Compiler_c_expr(comp,code,i+1)
       Compiler_append_op(comp,RET)
-    }:?c=BANG{
+    }:?c=EXCLAMATION_MARK{
       @throw
       :i:Compiler_c_expr(comp,code,i+1)
       Compiler_append_op(comp,THRO)
@@ -790,10 +791,6 @@
   }
   :Compiler_compile(comp,code){
     Compiler_c_code_block(comp,code,0)
-    $comp
-  }
-  :Compiler_output_chars(comp){
-    out(dchunk(Compiler_jam(comp),0,Compiler_jam_idx(comp)))
     $comp
   }
   :Compiler_init_words(words){
