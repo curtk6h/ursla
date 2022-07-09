@@ -563,17 +563,17 @@
     }
     @|last
     ?c=7c{
-      @ out("last index: ")
-      @ out(last_stmt_start)
-      @ out(" - ")
+      out("last index: ")
+      out(last_stmt_start)
+      out(" - ")
 
-      @ out("this index: ")
-      @ out(this_stmt_start)
-      @ out(" - ")
+      out("this index: ")
+      out(this_stmt_start)
+      out(" - ")
 
-      @ out("here: ")
-      @ out(Compiler_jam_idx(comp)-1)
-      @ out(" - ")
+      out("here: ")
+      out(Compiler_jam_idx(comp)-1)
+      out(" - ")
 
       @set(Compiler_jam(comp),last_stmt_start-1,NOP)
       @Compiler_swap_adjacent_end_chunks(comp,last_stmt_start,this_stmt_start)
@@ -697,8 +697,10 @@
       ?~((c=COLON)|(c=PAREN_L)|(c=CURLY_BRACE_L)){
         @ variable declaration
         :lv:Compiler_lv(comp)
-        :li:find(Vector_v(lv),0,Vector_n(lv),symbol)
+        :ln:Vector_n(lv)
+        :li:find(Vector_v(lv),0,ln,symbol)
         ?li=-1{
+          :li:ln
           Vector_append(lv,symbol)
         }
       }:{
@@ -706,13 +708,12 @@
         :ln:Vector_n(lv)
         :li:find(Vector_v(lv),0,ln,symbol)
         ?li=-1{
-          :gi:-1
-          @:gv:Compiler_gv(comp)
-          @:gi:find(Vector_v(gv),0,Vector_n(gv),symbol)
-          @?gi=-1{
-            Vector_append(lv,symbol)
+          :gv:Compiler_gv(comp)
+          :gi:find(Vector_v(gv),0,Vector_n(gv),symbol)
+          ?gi=-1{
             :li:ln
-          @}
+            Vector_append(lv,symbol)
+          }
         }
         ?c=COLON{
           @ simple assignment
@@ -744,7 +745,7 @@
           Compiler_encode_short(comp,top+1,Compiler_jam_idx(comp))
           Compiler_append_op_w_addr(comp,LODR,top+5)
         }
-        ?gi>-1{
+        ?li=-1{
           Compiler_append_op_w_byte(comp,SETG,gi)
         }:{
           Compiler_append_op_w_byte(comp,SETL,li)

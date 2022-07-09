@@ -256,11 +256,15 @@
   :e(a){ $a|10 }
   :g{ assert(1) $1 }
   :missing_ret(){ 123 }
+  :a_global:-1
+  :set_global(){ :a_global:789 $NIL }
   assert(c())
   assert(~d())
   assert(e(c())=11)
   assert(g())
   assert(missing_ret()=123)
+  set_global()
+  assert(a_global=789)
   
   @ try/catch
   ?{
