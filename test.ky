@@ -255,10 +255,12 @@
   :D(){ $d() }
   :e(a){ $a|10 }
   :g{ assert(1) $1 }
+  :missing_ret(){ 123 }
   assert(c())
   assert(~d())
   assert(e(c())=11)
   assert(g())
+  assert(missing_ret()=123)
   
   @ try/catch
   ?{
@@ -291,8 +293,11 @@
   :test_array:,3,4,5,x
   out(test_array)
   
-  :dynamic_test_array:array(1)
+  :dynamic_test_array:array(10)
   set(dynamic_test_array,0,69)
+  @set(|,1,2)
+  @set(|,2,4)
+  @set(|,3,6)
   out(get(dynamic_test_array,0)) @ print first entry in bytes
   
   @test stdlib

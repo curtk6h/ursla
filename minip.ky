@@ -117,8 +117,8 @@
   }
   :dconcat(a,b){
     :c:data(len(a)+len(b))
-    $copy(c,a,0,0,len(a))
-    $copy(c,b,len(a),0,len(b))
+    copy(c,a,0,0,len(a))
+    copy(c,b,len(a),0,len(b))
     $c
   }
   :join(delimiter,datas){
@@ -159,8 +159,8 @@
   }
   :aconcat(a,b){
     :c:array(len(a)+len(b))
-    $copy(c,a,0,0,len(a))
-    $copy(c,b,len(a),0,len(b))
+    copy(c,a,0,0,len(a))
+    copy(c,b,len(a),0,len(b))
     $c
   }
   :flatten(arrays){
@@ -339,6 +339,7 @@
   :GETL:23
   :GETG:67
   :SETL:3a
+  :SETG:47
   :JUMP:6a
   :JZ:3f
   :JSR:7b
@@ -351,65 +352,68 @@
   :NEG:7e
   :Compiler_c_expr @tbd
   :Compiler_c_code_block @tbd
-  :Compiler_vmcode(comp){ $get(comp,0) }
-  :Compiler_vmcode_idx(comp){ $get(comp,1) }
-  :Compiler_set_vmcode_idx(comp,i){ $set(comp,1,i) }
+  :Compiler_jam(comp){ $get(comp,0) }
+  :Compiler_jam_idx(comp){ $get(comp,1) }
+  :Compiler_set_jam_idx(comp,i){ $set(comp,1,i) }
   :Compiler_debug(comp){ $get(comp,2) }
   :Compiler_words(comp){ $get(comp,3) }
   :Compiler_vs(comp){ $get(comp,4) }
   :Compiler_gv(comp){ $Vector_get(get(comp,4),0) }
   :Compiler_lv(comp){ $Vector_last(get(comp,4)) }
   :Compiler_encode_byte(comp,i,x){
-    :vmcode:Compiler_vmcode(comp)
-    set(vmcode,i+0,hex_digit(unpack(x,+f0)))
-    set(vmcode,i+1,hex_digit(x&+f))
+    :jam:Compiler_jam(comp)
+    set(jam,i+0,hex_digit(unpack(x,+f0)))
+    set(jam,i+1,hex_digit(x&+f))
     $i+2
   }
   :Compiler_encode_short(comp,i,x){
-    :vmcode:Compiler_vmcode(comp)
-    set(vmcode,i+0,hex_digit(unpack(x,+f000)))
-    set(vmcode,i+1,hex_digit(unpack(x,+f00)))
-    set(vmcode,i+2,hex_digit(unpack(x,+f0)))
-    set(vmcode,i+3,hex_digit(x&+f))
+    :jam:Compiler_jam(comp)
+    set(jam,i+0,hex_digit(unpack(x,+f000)))
+    set(jam,i+1,hex_digit(unpack(x,+f00)))
+    set(jam,i+2,hex_digit(unpack(x,+f0)))
+    set(jam,i+3,hex_digit(x&+f))
     $i+4
   }
   :Compiler_append_op(comp,op){
-    :i:Compiler_vmcode_idx(comp)
-    set(Compiler_vmcode(comp),i,op)
-    Compiler_set_vmcode_idx(comp,i+1)
-    $i+1
+    :i:Compiler_jam_idx(comp)
+    set(Compiler_jam(comp),i,op)
+    $Compiler_set_jam_idx(comp,i+1)
   }
   :Compiler_append_op_w_byte(comp,op,x){
-    :i:Compiler_vmcode_idx(comp)
-    set(Compiler_vmcode(comp),i,op)
+    :i:Compiler_jam_idx(comp)
+    set(Compiler_jam(comp),i,op)
     :i:Compiler_encode_byte(comp,i+1,x)
-    $Compiler_set_vmcode_idx(comp,i)
+    $Compiler_set_jam_idx(comp,i)
   }
   :Compiler_append_op_w_short(comp,op,x){
-    :i:Compiler_vmcode_idx(comp)
-    set(Compiler_vmcode(comp),i,op)
+    :i:Compiler_jam_idx(comp)
+    set(Compiler_jam(comp),i,op)
     :i:Compiler_encode_short(comp,i+1,x)
-    $Compiler_set_vmcode_idx(comp,i)
+    $Compiler_set_jam_idx(comp,i)
   }
   :Compiler_append_data(comp,d,i,j){
-    :vmcode:Compiler_vmcode(comp)
-    :vmcode_i:Compiler_vmcode_idx(comp) 
+    :jam:Compiler_jam(comp)
+    :jam_i:Compiler_jam_idx(comp) 
     ?i<j{
-      set(vmcode,vmcode_i,get(d,i))
-      :vmcode_i:vmcode_i+1
+      set(jam,jam_i,get(d,i))
+      :jam_i:jam_i+1
       :i:i+1
     }^
-    $Compiler_set_vmcode_idx(comp,vmcode_i)
+    $Compiler_set_jam_idx(comp,jam_i)
   }
   :Compiler_append_op_w_addr:Compiler_append_op_w_short
+  :Compiler_append_ret_if_drop(comp){
+    set(Compiler_jam(comp),Compiler_jam_idx(comp)-1,RET) @ always will be either DROP or RET
+    $comp
+  }
   :Compiler_swap_adjacent_end_chunks(comp,ai,bi){
-    :vmcode:Compiler_vmcode(comp)
-    :vmcode_n:Compiler_vmcode_idx(comp) 
+    :jam:Compiler_jam(comp)
+    :jam_n:Compiler_jam_idx(comp) 
     :an:bi-ai
-    :bn:vmcode_n-bi
-    :end_chunk:dchunk(vmcode,bi,bn)
-    copy(vmcode,vmcode,ai+bn,ai,an)
-    copy(vmcode,end_chunk,ai,0,bn)
+    :bn:jam_n-bi
+    :end_chunk:dchunk(jam,bi,bn)
+    copy(jam,jam,ai+bn,ai,an)
+    copy(jam,end_chunk,ai,0,bn)
     $comp
   }
   :Compiler_throw_syntax_err(code,i,msg){
@@ -498,6 +502,8 @@
     Compiler_append_op_w_short(comp,LODI,result(0))
     $i
   }
+  :last_stmt_start:0 @ TODO: move these to Compiler class
+  :this_stmt_start:0 @
   :Compiler_c_operand(comp,code,i){
     :c:get(code,i)
     @integer
@@ -555,6 +561,28 @@
       Compiler_append_op_w_byte(comp,NATV,result(0))
       $i
     }
+    @|last
+    ?c=7c{
+      @ out("last index: ")
+      @ out(last_stmt_start)
+      @ out(" - ")
+
+      @ out("this index: ")
+      @ out(this_stmt_start)
+      @ out(" - ")
+
+      @ out("here: ")
+      @ out(Compiler_jam_idx(comp)-1)
+      @ out(" - ")
+
+      @set(Compiler_jam(comp),last_stmt_start-1,NOP)
+      @Compiler_swap_adjacent_end_chunks(comp,last_stmt_start,this_stmt_start)
+      @set(Compiler_jam(comp),Compiler_jam_idx(comp)-1,NOP)
+      @Compiler_set_jam_idx(comp,Compiler_jam_idx(comp)-1) @ pick one or the other, not both of these!
+      @:this_stmt_start:last_stmt_start
+      Compiler_append_op_w_short(comp,LODI,88)
+      $i+1
+    }
     :msg:join(EMPTY_DATA,(,"Invalid operand ",char(c)))
     Compiler_throw_syntax_err(code,i,msg)
   }
@@ -564,11 +592,11 @@
       :neg:~neg
       :i:i+1
     }^
-    :operand_start:Compiler_vmcode_idx(comp)
+    :operand_start:Compiler_jam_idx(comp)-this_stmt_start
     :i:Compiler_c_operand(comp,code,i)
     ?get(code,i)=PAREN_L{
       :i:i+1
-      :args_start:Compiler_vmcode_idx(comp)
+      :args_start:Compiler_jam_idx(comp)-this_stmt_start
       ?~(get(code,i)=PAREN_R){
         :i:Compiler_c_expr(comp,code,i)
         ?get(code,i)=COMMA{
@@ -576,7 +604,7 @@
         }
       }^
       :i:i+1 @ consume )
-      Compiler_swap_adjacent_end_chunks(comp,operand_start,args_start)
+      Compiler_swap_adjacent_end_chunks(comp,operand_start+this_stmt_start,args_start+this_stmt_start)
       Compiler_append_op(comp,JSR)
     }^
     ?neg{
@@ -624,17 +652,17 @@
   }
   :Compiler_c_statement(comp,code,i){
     :c:get(code,i)
-    @if/while/try
     ?c=QUESTION_MARK{
+      @if/while/try
       ?get(code,i+1)=CURLY_BRACE_L{
-        :here:Compiler_vmcode_idx(comp)
+        :here:Compiler_jam_idx(comp)
         Compiler_append_op_w_addr(comp,TRY,0)
         :i:Compiler_c_code_block(comp,code,i+1)
         Compiler_append_op(comp,ETRY)
       }:{
-        :top:Compiler_vmcode_idx(comp)
+        :top:Compiler_jam_idx(comp)
         :i:Compiler_c_expr(comp,code,i+1)
-        :here:Compiler_vmcode_idx(comp)
+        :here:Compiler_jam_idx(comp)
         Compiler_append_op_w_addr(comp,JZ,0)
         :i:Compiler_c_code_block(comp,code,i)
       }
@@ -642,15 +670,15 @@
         ?get(code,i)=COLON{
           :there:here
           :i:i+1
-          :here:Compiler_vmcode_idx(comp)
+          :here:Compiler_jam_idx(comp)
           Compiler_append_op_w_addr(comp,JUMP,0)
-          Compiler_encode_short(comp,there+1,Compiler_vmcode_idx(comp))
+          Compiler_encode_short(comp,there+1,Compiler_jam_idx(comp))
           ?get(code,i)=QUESTION_MARK{
             :i:Compiler_c_expr(comp,code,i+1)
-            :there:Compiler_vmcode_idx(comp)
+            :there:Compiler_jam_idx(comp)
             Compiler_append_op_w_addr(comp,JZ,0)
             :i:Compiler_c_code_block(comp,code,i)
-            Compiler_encode_short(comp,here+1,Compiler_vmcode_idx(comp))
+            Compiler_encode_short(comp,here+1,Compiler_jam_idx(comp))
             :here:there
           }:{
             :i:Compiler_c_code_block(comp,code,i)
@@ -660,29 +688,39 @@
         :i:i+1
         Compiler_append_op_w_addr(comp,JUMP,top)
       }
-      Compiler_encode_short(comp,here+1,Compiler_vmcode_idx(comp))
-      @function or variable assignment
+      Compiler_encode_short(comp,here+1,Compiler_jam_idx(comp))
     }:?c=COLON{
+      @function or variable assignment
       :i:Compiler_parse_symbol(comp,code,i+1)
-      :symbol:result(0)   
-      :lv:Compiler_lv(comp)
-      :lv_n:Vector_n(lv)
-      :lv_i:find(Vector_v(lv),0,lv_n,symbol)
-      ?lv_i=-1{
-        :lv_i:lv_n
-        Vector_append(lv,symbol)
-      }
+      :symbol:result(0)
       :c:get(code,i)
       ?~((c=COLON)|(c=PAREN_L)|(c=CURLY_BRACE_L)){
-        @ variable declaration, nothing else to do
+        @ variable declaration
+        :lv:Compiler_lv(comp)
+        :li:find(Vector_v(lv),0,Vector_n(lv),symbol)
+        ?li=-1{
+          Vector_append(lv,symbol)
+        }
       }:{
+        :lv:Compiler_lv(comp)
+        :ln:Vector_n(lv)
+        :li:find(Vector_v(lv),0,ln,symbol)
+        ?li=-1{
+          :gi:-1
+          @:gv:Compiler_gv(comp)
+          @:gi:find(Vector_v(gv),0,Vector_n(gv),symbol)
+          @?gi=-1{
+            Vector_append(lv,symbol)
+            :li:ln
+          @}
+        }
         ?c=COLON{
           @ simple assignment
           :i:Compiler_c_expr(comp,code,i+1)
         }:{
           @ function definition
           :vs:Compiler_vs(comp)
-          :top:Compiler_vmcode_idx(comp)
+          :top:Compiler_jam_idx(comp)
           Compiler_append_op_w_addr(comp,JUMP,0)
           :fv:Vector(+ff)
           Vector_append(vs,fv)
@@ -701,26 +739,36 @@
             Compiler_append_op_w_byte(comp,ARGS,n)
           }
           :i:Compiler_c_code_block(comp,code,i)
+          Compiler_append_ret_if_drop(comp)
           Vector_pop(vs)
-          Compiler_encode_short(comp,top+1,Compiler_vmcode_idx(comp))
+          Compiler_encode_short(comp,top+1,Compiler_jam_idx(comp))
           Compiler_append_op_w_addr(comp,LODR,top+5)
         }
-        Compiler_append_op_w_byte(comp,SETL,lv_i)
+        ?gi>-1{
+          Compiler_append_op_w_byte(comp,SETG,gi)
+        }:{
+          Compiler_append_op_w_byte(comp,SETL,li)
+        }
       }
-      @function call
     }:?is_word(c){
+      @expression
+      :last_stmt_start:this_stmt_start
+      :this_stmt_start:Compiler_jam_idx(comp)
+      @ out("start of a statement: ")
+      @ out(this_stmt_start)
+      @ out(" - ")
       :i:Compiler_c_expr(comp,code,i)
       Compiler_append_op(comp,DROP)
-      @return
     }:?c=DOLLAR_SIGN{
+      @return
       :i:Compiler_c_expr(comp,code,i+1)
       Compiler_append_op(comp,RET)
-      @throw
     }:?c=BANG{
+      @throw
       :i:Compiler_c_expr(comp,code,i+1)
       Compiler_append_op(comp,THRO)
-      @annotation
     }:?c=AT_SIGN{
+      @annotation
       ?~(get(code,i)=NL){
         :i:i+1
       }^
@@ -744,7 +792,7 @@
     $comp
   }
   :Compiler_output_chars(comp){
-    out(dchunk(Compiler_vmcode(comp),0,Compiler_vmcode_idx(comp)))
+    out(dchunk(Compiler_jam(comp),0,Compiler_jam_idx(comp)))
     $comp
   }
   :Compiler_init_words(words){
