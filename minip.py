@@ -7,7 +7,6 @@
 # - structs
 # - add unary op for - alongside ~, add _neg()
 # - use intarray instead of byte array to avoid unp
-# - allow > 256 globals 
 # - vm per func? add args and return value to exec
 # - yield instruction or here
 # - vsc syntax highlighting
@@ -79,7 +78,7 @@ class VM(object):
             op = jam[ip]
             exec_bytes[ip] = ord(op)
             ip += 1
-            if op in 'isar?jt':
+            if op in 'gGisar?jt':
                 x = int(jam[ip:ip+4], 16)
                 exec_bytes[ip] = (x>>8)&0xFF
                 exec_bytes[ip+1] = x&0xFF
@@ -89,7 +88,7 @@ class VM(object):
                     while ip < x:
                         exec_bytes[ip] = ord(jam[ip])
                         ip += 1
-            elif op in ':#Ggp':
+            elif op in ':#p':
                 exec_bytes[ip] = int(jam[ip:ip+2], 16)
                 ip += 2
             elif op == '\\':
@@ -206,11 +205,11 @@ class VM(object):
             os.append(vs[var_off+exec_bytes[ip]])
             return ip + 2
         def _setg(exec_bytes, ip):
-            vs[exec_bytes[ip]] = os.pop()
-            return ip + 2
+            vs[self.unpack_uint(exec_bytes, ip)] = os.pop()
+            return ip + 4
         def _getg(exec_bytes, ip):
-            os.append(vs[exec_bytes[ip]])
-            return ip + 2
+            os.append(vs[self.unpack_uint(exec_bytes, ip)])
+            return ip + 4
         def _ret(exec_bytes, ip):
             fs.pop()
             return fs[-1]

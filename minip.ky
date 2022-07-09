@@ -548,7 +548,7 @@
       :gv:Compiler_gv(comp)
       :var_i:find(Vector_v(gv),0,Vector_n(gv),symbol)
       ?var_i>-1{
-        Compiler_append_op_w_byte(comp,GETG,var_i)
+        Compiler_append_op_w_short(comp,GETG,var_i)
         $i
       }
       Compiler_throw_syntax_err(code,i,"Variable not defined")
@@ -747,7 +747,7 @@
           Compiler_append_op_w_addr(comp,LODR,top+5)
         }
         ?li=-1{
-          Compiler_append_op_w_byte(comp,SETG,gi)
+          Compiler_append_op_w_short(comp,SETG,gi)
         }:{
           Compiler_append_op_w_byte(comp,SETL,li)
         }
