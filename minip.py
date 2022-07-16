@@ -2,13 +2,11 @@
 
 # TODO:
 # - add get/set syntax? foo:x:1 / foo.x
-# - wire debug to compiler
-# - ensure all funcs have return values!
-# - check num params? or add undefined?
-# - structs
+# - ensure all funcs end in return value (that's right, no ending with "}:{ $x }")
+# - add undefined to make missing args easier to debug in function calls
+# - add types?
 # - add unary op for - alongside ~, add _neg()
 # - use intarray instead of byte array to avoid unp
-# - vm per func? add args and return value to exec
 # - yield instruction or here
 # - vsc syntax highlighting
 # - vsc preview
