@@ -32,6 +32,9 @@ def ffb(x):
     # NOTE: this only works for values where 1 bit is set
     return _BIT_POS[(x&-x)%37]
 
+class VMError(Exception):
+    pass
+
 class VM(object):
     def __init__(self, stdout=None, stdin=None):
         self.operand_stack = []
@@ -130,6 +133,16 @@ class VM(object):
         #     exec_bytes[ip] = ord(op)
         #     ip += 1
         return exec_bytes
+
+    def primitive_to_str(self, value):
+        if isinstance(value, bytearray):
+            return value.decode("ascii")
+        elif isinstance(value, list):
+            return ''.join(map(str, value))
+        elif value is None:
+            return ''
+        else:
+            return str(value)
     
     def unpack_uint(self, exec_bytes, ip):
         return (exec_bytes[ip]<<8) | exec_bytes[ip+1]
@@ -238,12 +251,10 @@ class VM(object):
             self.err_stack.pop()
             return ip
         def _throw(exec_bytes, ip):
-            rval = os.pop()
+            vs[1] = os.pop()
             if not self.err_stack:
-                raise RuntimeError("Error: {}".format(rval))
+                raise VMError(self.primitive_to_str(vs[1]))
             frame_n, ip, operand_n = self.err_stack.pop()
-            var_off = (frame_n-1) * 256
-            vs[var_off+1] = rval
             del fs[frame_n:]
             del os[operand_n:]
             return ip
@@ -260,14 +271,7 @@ class VM(object):
             os.append(bytearray(self.stdin.read(), 'ascii'))
             return ip
         def _out(exec_bytes, ip):
-            value = os[-1]
-            if isinstance(value, bytearray):
-                value = value.decode("ascii")
-            elif isinstance(value, list):
-                value = ''.join(map(str, value))
-            elif value is None:
-                value = ''
-            self.stdout.write(str(value))
+            self.stdout.write(self.primitive_to_str(os[-1]))
             return ip
         def _pack(exec_bytes, ip):
             value, mask = os.pop(), os.pop()
@@ -402,6 +406,9 @@ if __name__ == "__main__":
         try:
             compiler(['compile'])
             compiler.compile(T if args.debug else F)
+        except VMError as vm_error:
+            sys.stderr.write(str(vm_error))
+            exit(0)
         except Exception as e:
             import traceback; traceback.print_exc()
             sys.stderr.write("Compiler error on line {}".format(compiler.err_line_trace()))
