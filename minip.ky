@@ -600,41 +600,38 @@
     }
     $i
   }
-  @ SUPPORT FOR OPERATOR PRECEDENCE
-  @ def expr(self, code):
-  @     code = self.comparison(code)
-  @     while code[0] in "&|":
-  @         op = code[0]
-  @         code = self.comparison(code[1:])
-  @         self._write_vm_op(op)
-  @     return code
-  @ def comparison(self, code):
-  @     code = self.arithmetic(code)
-  @     while code[0] in "=<>":
-  @         op = code[0]
-  @         code = self.arithmetic(code[1:])
-  @         self._write_vm_op(op)
-  @     return code
-  @ def arithmetic(self, code):
-  @     code = self.mul_div_mod(code)
-  @     while code[0] in "+-":
-  @         op = code[0]
-  @         code = self.mul_div_mod(code[1:])
-  @         self._write_vm_op(op)
-  @     return code
-  @ def mul_div_mod(self, code):
-  @     code = self.unary_op(code)
-  @     while code[0] in "*/%":
-  @         op = code[0]
-  @         code = self.unary_op(code[1:])
-  @         self._write_vm_op(op)
-  @     return code
-  :BINARY_OPERATORS:,AMPERSAND,VERTICAL_BAR,CARET,EQ_SIGN,LT_SIGN,GT_SIGN,PLUS_SIGN,HYPHEN,ASTERISK,SLASH,PERCENT_SIGN
-  :Compiler_c_expr(comp,code,i){
+  :is_logical_operator(c){
+    $(c=VERTICAL_BAR)|(c=AMPERSAND)|(c=CARET)
+  }
+  :is_comparison_operator(c){
+    $(c=EQ_SIGN)|(c=LT_SIGN)|(c=GT_SIGN)
+  }
+  :is_arithmetic_operator(c){
+    $(c=PLUS_SIGN)|(c=HYPHEN)|(c=ASTERISK)|(c=SLASH)|(c=PERCENT_SIGN)
+  }
+  :Compiler_c_arithmetic(comp,code,i){
     :i:Compiler_c_unary_op(comp,code,i)
-    ?has(BINARY_OPERATORS,get(code,i)){
+    ?is_arithmetic_operator(get(code,i)){
       :op:get(code,i)
       :i:Compiler_c_unary_op(comp,code,i+1)
+      Compiler_append_op(comp,op)
+    }^
+    $i
+  }
+  :Compiler_c_comparison(comp,code,i){
+    :i:Compiler_c_arithmetic(comp,code,i)
+    ?is_comparison_operator(get(code,i)){
+      :op:get(code,i)
+      :i:Compiler_c_arithmetic(comp,code,i+1)
+      Compiler_append_op(comp,op)
+    }^
+    $i
+  }
+  :Compiler_c_expr(comp,code,i){
+    :i:Compiler_c_comparison(comp,code,i)
+    ?is_logical_operator(get(code,i)){
+      :op:get(code,i)
+      :i:Compiler_c_comparison(comp,code,i+1)
       Compiler_append_op(comp,op)
     }^
     $i

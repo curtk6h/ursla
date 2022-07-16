@@ -36,7 +36,7 @@ class VMError(Exception):
 class VM(object):
     def __init__(self, stdout=None, stdin=None):
         self.operand_stack = []
-        self.var_stack = [None] * 256 * 32
+        self.var_stack = [None] * 256 * 50
         self.var_stack[0] = None
         self.var_stack[1] = None
         self.var_stack[2] = F
