@@ -609,29 +609,14 @@
   :is_arithmetic_operator(c){
     $(c=PLUS_SIGN)|(c=HYPHEN)|(c=ASTERISK)|(c=SLASH)|(c=PERCENT_SIGN)
   }
-  :Compiler_c_arithmetic(comp,code,i){
-    :i:Compiler_c_unary_op(comp,code,i)
-    ?is_arithmetic_operator(get(code,i)){
-      :op:get(code,i)
-      :i:Compiler_c_unary_op(comp,code,i+1)
-      Compiler_append_op(comp,op)
-    }^
-    $i
-  }
-  :Compiler_c_comparison(comp,code,i){
-    :i:Compiler_c_arithmetic(comp,code,i)
-    ?is_comparison_operator(get(code,i)){
-      :op:get(code,i)
-      :i:Compiler_c_arithmetic(comp,code,i+1)
-      Compiler_append_op(comp,op)
-    }^
-    $i
+  :is_binary_operator(c){
+    $is_logical_operator(c)|is_comparison_operator(c)|is_arithmetic_operator(c)
   }
   :Compiler_c_expr(comp,code,i){
-    :i:Compiler_c_comparison(comp,code,i)
-    ?is_logical_operator(get(code,i)){
+    :i:Compiler_c_unary_op(comp,code,i)
+    ?is_binary_operator(get(code,i)){
       :op:get(code,i)
-      :i:Compiler_c_comparison(comp,code,i+1)
+      :i:Compiler_c_unary_op(comp,code,i+1)
       Compiler_append_op(comp,op)
     }^
     $i

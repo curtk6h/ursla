@@ -213,9 +213,9 @@
   assert(5%2=1)
   
   @ order of operations
-  assert(1<0|2<3)
-  assert(~(1<0&2<3))
-  assert(~(1<0+2&2+(2/2)<3))
+  @ assert(1<0|2<3)
+  @ assert(~(1<0&2<3))
+  @ assert(~(1<0+2&2+(2/2)<3))
   
   @ variable ops
   :a:0
