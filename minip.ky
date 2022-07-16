@@ -355,7 +355,8 @@
   :TRY:74
   :ETRY:54
   :THRO:21
-  :NEG:7e
+  :NOT:7e
+  :NEG:6e
   :Compiler_c_expr @tbd
   :Compiler_c_code_block @tbd
   :Compiler_jam(comp){ $get(comp,0) }
@@ -574,14 +575,16 @@
     Compiler_throw_syntax_err(code,i,msg)
   }
   :Compiler_c_unary_op(comp,code,i){
-    :neg:F
-    ?get(code,i)=TILDA{
-      :neg:~neg
+    @ pre operators (pick one -- can't think of a reason to intermix or repeat)
+    @ NOTE: negative requires lookahead (probably should tokenize afterall)
+    :pre_op:get(code,i)
+    ?(pre_op=TILDA)|((pre_op=HYPHEN)&~is_digit(get(code,i+1))){
       :i:i+1
-    }^
+    }
+    @ operand
     :operand_start:Compiler_jam_idx(comp)
     :i:Compiler_c_operand(comp,code,i)
-    @ function call
+    @ post operators (ie. function call)
     ?get(code,i)=PAREN_L{
       :i:i+1
       :args_start:Compiler_jam_idx(comp)
@@ -595,7 +598,9 @@
       Compiler_swap_chunks(comp,operand_start,args_start,args_start,Compiler_jam_idx(comp))
       Compiler_append_op(comp,JSR)
     }^
-    ?neg{
+    ?pre_op=TILDA{
+      Compiler_append_op(comp,NOT)
+    }:?pre_op=HYPHEN{
       Compiler_append_op(comp,NEG)
     }
     $i

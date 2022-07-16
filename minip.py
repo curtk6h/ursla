@@ -5,7 +5,6 @@
 # - ensure all funcs end in return value (that's right, no ending with "}:{ $x }")
 # - add undefined to make missing args easier to debug in function calls
 # - add types?
-# - add unary op for - alongside ~, add _neg()
 # - use intarray instead of byte array to avoid unp
 # - yield instruction or here
 # - vsc syntax highlighting
@@ -188,9 +187,12 @@ class VM(object):
             return ip
         def _xor(exec_bytes, ip):
             os[-1] = os[-2] ^ os.pop()
-            return ip        
+            return ip
         def _not(exec_bytes, ip):
             os[-1] = ~os[-1]
+            return ip
+        def _neg(exec_bytes, ip):
+            os[-1] = -os[-1]
             return ip
         def _add(exec_bytes, ip):
             os[-1] = int16(os[-2]+os.pop())
@@ -314,14 +316,15 @@ class VM(object):
         self.ops[ord('s')] = _load_str
         self.ops[ord('a')] = _load_array
         self.ops[ord('r')] = _load_int
-        self.ops[ord(';')] = _drop
+        self.ops[ord(';')] = _drop        
+        self.ops[ord('~')] = _not    
+        self.ops[ord('-')] = _neg
         self.ops[ord('=')] = _eq
         self.ops[ord('<')] = _lt
         self.ops[ord('>')] = _gt
         self.ops[ord('|')] = _or
         self.ops[ord('&')] = _and
-        self.ops[ord('^')] = _xor        
-        self.ops[ord('~')] = _not
+        self.ops[ord('^')] = _xor
         self.ops[ord('+')] = _add
         self.ops[ord('-')] = _sub
         self.ops[ord('*')] = _mul
