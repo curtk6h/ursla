@@ -16,8 +16,9 @@
   @ c : numeric or other value, as part of a set
   @ r : result
   @ m : match or multiplier or alt counter
-  
+
   @standard lib
+  :expose(funcs){ :_exposed_funcs:funcs $funcs }
   :is{ $\80 }
   :weak{ $\81 }
   :time{ $\82 }
@@ -361,13 +362,12 @@
   :Compiler_jam_idx(comp){ $get(comp,1) }
   :Compiler_set_jam_idx(comp,i){ $set(comp,1,i) }
   :Compiler_debug(comp){ $get(comp,2) }
-  :Compiler_words(comp){ $get(comp,3) }
+  :Compiler_symbols(comp){ $get(comp,3) }
   :Compiler_vs(comp){ $get(comp,4) }
   :Compiler_gv(comp){ $Vector_get(get(comp,4),0) }
   :Compiler_lv(comp){ $Vector_last(get(comp,4)) }
-  :Compiler_output_chars(comp){
-    out(dchunk(Compiler_jam(comp),0,Compiler_jam_idx(comp)))
-    $comp
+  :Compiler_jam_for_output(comp){
+    $dchunk(Compiler_jam(comp),0,Compiler_jam_idx(comp))
   }
   :Compiler_encode_byte(comp,i,x){
     :jam:Compiler_jam(comp)
@@ -411,10 +411,6 @@
     $Compiler_set_jam_idx(comp,jam_i)
   }
   :Compiler_append_op_w_addr:Compiler_append_op_w_short
-  :Compiler_append_ret_if_drop(comp){
-    set(Compiler_jam(comp),Compiler_jam_idx(comp)-1,RET) @ always will be either DROP or RET
-    $comp
-  }
   :Compiler_swap_chunks(comp,ai,aj,bi,bj){
     @ swap chunks a and b, preserving the data between them
     :jam:Compiler_jam(comp)
@@ -483,23 +479,23 @@
   }
   :Compiler_parse_symbol(comp,code,i){
     ?~is_word(get(code,i)){
-      :msg:join(EMPTY_DATA,(,"Expected wordchar got ",char(get(code,i))))
+      :msg:join(EMPTY_DATA,(,"Expected symbol got ",char(get(code,i))))
       Compiler_throw_syntax_err(code,i,msg) 
     }
     :n:0
     ?is_word(get(code,i+n)){
       :n:n+1
     }^
-    :word:dchunk(code,i,n)
-    :words:Compiler_words(comp)
-    :words_v:Vector_v(words)
-    :words_n:Vector_n(words)
-    :symbol:find(words_v,0,words_n,word)
-    ?symbol=-1{
-      :symbol:words_n
-      Vector_append(words,word)
+    :symbol:dchunk(code,i,n)
+    :symbols:Compiler_symbols(comp)
+    :symbols_v:Vector_v(symbols)
+    :symbols_n:Vector_n(symbols)
+    :id:find(symbols_v,0,symbols_n,symbol)
+    ?id=-1{
+      :id:symbols_n
+      Vector_append(symbols,symbol)
     }
-    set_result(0,symbol)
+    set_result(0,id)
     $i+n
   }
   :Compiler_parse_eol(comp,code,i){
@@ -515,8 +511,6 @@
     Compiler_append_op_w_short(comp,LODI,result(0))
     $i
   }
-  :last_stmt_start:0 @ TODO: move these to Compiler class
-  :this_stmt_start:0 @
   :Compiler_c_operand(comp,code,i){
     :c:get(code,i)
     @integer
@@ -535,20 +529,22 @@
       Compiler_append_data(comp,code,i,j)
       $j+1
     }
-    @variable
+    @variable / function call
     ?is_word(c){
       :i:Compiler_parse_symbol(comp,code,i)
-      :symbol:result(0)
+      :symbol_id:result(0)
+      @local
       :lv:Compiler_lv(comp)
-      :var_i:find(Vector_v(lv),0,Vector_n(lv),symbol)
-      ?var_i>-1{
-        Compiler_append_op_w_byte(comp,GETL,var_i)
+      :li:find(Vector_v(lv),0,Vector_n(lv),symbol_id)
+      ?li>-1{
+        Compiler_append_op_w_byte(comp,GETL,li)
         $i
       }
+      @global
       :gv:Compiler_gv(comp)
-      :var_i:find(Vector_v(gv),0,Vector_n(gv),symbol)
-      ?var_i>-1{
-        Compiler_append_op_w_short(comp,GETG,var_i)
+      :gi:find(Vector_v(gv),0,Vector_n(gv),symbol_id)
+      ?gi>-1{
+        Compiler_append_op_w_short(comp,GETG,gi)
         $i
       }
       Compiler_throw_syntax_err(code,i,"Variable not defined")
@@ -574,13 +570,6 @@
       Compiler_append_op_w_byte(comp,NATV,result(0))
       $i
     }
-    @pipe
-    ?c=VERTICAL_BAR{
-      Compiler_swap_chunks(comp,last_stmt_start,this_stmt_start,this_stmt_start,Compiler_jam_idx(comp))
-      Compiler_set_jam_idx(comp,Compiler_jam_idx(comp)-1)
-      :this_stmt_start:last_stmt_start
-      $i+1
-    }
     :msg:join(EMPTY_DATA,(,"Invalid operand ",char(c)))
     Compiler_throw_syntax_err(code,i,msg)
   }
@@ -590,13 +579,12 @@
       :neg:~neg
       :i:i+1
     }^
-    @ jamcode offsets must be relative to the encompassing statement,
-    @ since the pipe operator moves code around
-    :operand_start:Compiler_jam_idx(comp)-this_stmt_start
+    :operand_start:Compiler_jam_idx(comp)
     :i:Compiler_c_operand(comp,code,i)
+    @ function call
     ?get(code,i)=PAREN_L{
       :i:i+1
-      :args_start:Compiler_jam_idx(comp)-this_stmt_start
+      :args_start:Compiler_jam_idx(comp)
       ?~(get(code,i)=PAREN_R){
         :i:Compiler_c_expr(comp,code,i)
         ?get(code,i)=COMMA{
@@ -604,7 +592,7 @@
         }
       }^
       :i:i+1 @ consume )
-      Compiler_swap_chunks(comp,operand_start+this_stmt_start,args_start+this_stmt_start,args_start+this_stmt_start,Compiler_jam_idx(comp))
+      Compiler_swap_chunks(comp,operand_start,args_start,args_start,Compiler_jam_idx(comp))
       Compiler_append_op(comp,JSR)
     }^
     ?neg{
@@ -693,27 +681,27 @@
     }:?c=COLON{
       @function or variable assignment
       :i:Compiler_parse_symbol(comp,code,i+1)
-      :symbol:result(0)
+      :symbol_id:result(0)
       :c:get(code,i)
       ?~((c=COLON)|(c=PAREN_L)|(c=CURLY_BRACE_L)){
         @ variable declaration
         :lv:Compiler_lv(comp)
         :ln:Vector_n(lv)
-        :li:find(Vector_v(lv),0,ln,symbol)
+        :li:find(Vector_v(lv),0,ln,symbol_id)
         ?li=-1{
           :li:ln
-          Vector_append(lv,symbol)
+          Vector_append(lv,symbol_id)
         }
       }:{
         :lv:Compiler_lv(comp)
         :ln:Vector_n(lv)
-        :li:find(Vector_v(lv),0,ln,symbol)
+        :li:find(Vector_v(lv),0,ln,symbol_id)
         ?li=-1{
           :gv:Compiler_gv(comp)
-          :gi:find(Vector_v(gv),0,Vector_n(gv),symbol)
+          :gi:find(Vector_v(gv),0,Vector_n(gv),symbol_id)
           ?gi=-1{
             :li:ln
-            Vector_append(lv,symbol)
+            Vector_append(lv,symbol_id)
           }
         }
         ?c=COLON{
@@ -741,7 +729,6 @@
             Compiler_append_op_w_byte(comp,ARGS,n)
           }
           :i:Compiler_c_code_block(comp,code,i)
-          Compiler_append_ret_if_drop(comp)
           Vector_pop(vs)
           Compiler_encode_short(comp,top+1,Compiler_jam_idx(comp))
           Compiler_append_op_w_addr(comp,LODR,top+5)
@@ -754,11 +741,6 @@
       }
     }:?is_word(c){
       @expression
-      :last_stmt_start:this_stmt_start
-      :this_stmt_start:Compiler_jam_idx(comp)
-      @ out("start of a statement: ")
-      @ out(this_stmt_start)
-      @ out(" - ")
       :i:Compiler_c_expr(comp,code,i)
       Compiler_append_op(comp,DROP)
     }:?c=DOLLAR_SIGN{
@@ -793,36 +775,43 @@
     Compiler_c_code_block(comp,code,0)
     $comp
   }
-  :Compiler_init_words(words){
-    Vector_append(words,"NIL")
-    Vector_append(words,"ERR")
-    Vector_append(words,"F")
-    Vector_append(words,"T")
-    $words
+  :Compiler_init_symbols(symbols){
+    Vector_append(symbols,"NIL")
+    Vector_append(symbols,"ERR")
+    Vector_append(symbols,"F")
+    Vector_append(symbols,"T")
+    Vector_append(symbols,"_exposed_funcs")
+    $symbols
   }
-  :Compiler_init_vs(vs){
-    :gv:Vector(100) @todo: globals should be > than 256, since they tend to get big
+  :Compiler_init_gv(gv){
     Vector_append(gv,0)
     Vector_append(gv,1)
     Vector_append(gv,2)
     Vector_append(gv,3)
-    Vector_append(vs,gv)
-    $vs
+    Vector_append(gv,4)
+    $gv
+  }
+  :Compiler_init_vs(vs){
+    $Vector_append(vs,Compiler_init_gv(Vector(100)))
   }
   :Compiler_init(comp,debug){
     set(comp,0,data(+7fff))
     set(comp,1,0)
     set(comp,2,debug)
-    set(comp,3,Compiler_init_words(Vector(4)))
+    set(comp,3,Compiler_init_symbols(Vector(1)))
     set(comp,4,Compiler_init_vs(Vector(1)))
     $comp
   }
   :Compiler(debug){
     $Compiler_init(array(5),debug)
   }
-  ?{
-    Compiler_output_chars(Compiler_compile(Compiler(F),in()))
-  }:{
-    out(ERR)
+  :compile(debug){
+    ?{
+      out(Compiler_jam_for_output(Compiler_compile(Compiler(debug),in())))
+    }:{
+      out(ERR)
+    }
+    $NIL
   }
+  expose(,compile)
 }

@@ -1,6 +1,7 @@
 #!/usr/local/bin/python3
 
 # TODO:
+# - add get/set syntax? foo:x:1 / foo.x
 # - wire debug to compiler
 # - ensure all funcs have return values!
 # - check num params? or add undefined?
@@ -25,6 +26,8 @@ def cmp(a, b):
 
 _BIT_POS = [0, 0, 1, 26, 2, 23, 27, 0, 3, 16, 24, 30, 28, 11, 0, 13, 4, 7, 17, 0, 25, 22, 31, 15, 29, 10, 12, 6, 0, 21, 14, 9, 5, 20, 8, 19, 18]
 
+T = -1; F = 0
+
 def ffb(x):
     # NOTE: this only works for values where 1 bit is set
     return _BIT_POS[(x&-x)%37]
@@ -35,8 +38,9 @@ class VM(object):
         self.var_stack = [None] * 256 * 32
         self.var_stack[0] = None
         self.var_stack[1] = None
-        self.var_stack[2] = 0
-        self.var_stack[3] = -1
+        self.var_stack[2] = F
+        self.var_stack[3] = T
+        self.var_stack[4] = [] # func_ips
         self.frame_stack = [-1]
         self.err_stack = []
         self.start_time = time.time()
@@ -44,17 +48,24 @@ class VM(object):
         self.stdin = stdin or sys.stdin
         self._init_ops()
 
-    def err_line_num(self, jam, frame_index=-1):
-        return jam[:self.frame_stack[frame_index]].count('\n') + 1
+    @staticmethod
+    def err_line_num(line_ips, ip):
+        line_num = 0
+        for next_line_index, next_ip in enumerate(line_ips):
+            if ip < next_ip:
+                break
+            line_num = next_line_index
+        return line_num + 1
 
-    def err_line_num_path(self, jam):
-        return " -> ".join(str(self.err_line_num(jam, i))
-                           for i in range(len(self.frame_stack)))
+    def err_line_trace(self, line_ips):
+        return " -> ".join(str(VM.err_line_num(line_ips, ip))
+                           for ip in self.frame_stack)
 
     def exec_sub(self, exec_bytes, ip, *args):
         fs = self.frame_stack
         fs_end = len(fs)
         fs.append(ip)
+        self.operand_stack.extend(args)
         try:
             while len(fs) != fs_end:
                 ip = self.ops[exec_bytes[ip]](exec_bytes, ip+1)
@@ -69,9 +80,11 @@ class VM(object):
                 ip = self.ops[exec_bytes[ip]](exec_bytes, ip+1)
         finally:
             self.frame_stack[-1] = ip
+        return self.var_stack[4]
 
     @staticmethod
     def compile_exec_bytes(jam):
+        line_ips = [0]
         exec_bytes = bytearray(len(jam))
         ip = 0
         while ip < len(jam):
@@ -94,9 +107,11 @@ class VM(object):
             elif op == '\\':
                 exec_bytes[ip-1] = int(jam[ip:ip+2], 16)
                 ip += 2
+            elif op == '\n':
+                line_ips.append(ip)
             else:
                 pass # no params
-        return VM.tune_exec_bytes(exec_bytes)
+        return exec_bytes, line_ips
 
     @staticmethod
     def tune_exec_bytes(exec_bytes):
@@ -111,7 +126,7 @@ class VM(object):
         # window = [0, 0, 0, 0]
         # ip = 0
         # while ip < len(exec_bytes):
-        #     op = jam[ip]
+        #     op = exec_bytes[ip]
         #     exec_bytes[ip] = ord(op)
         #     ip += 1
         return exec_bytes
@@ -291,7 +306,7 @@ class VM(object):
             dest = os[-1]
             for j in range(n):
                 dest[di+j] = src[si+j]
-            return ip        
+            return ip
         self.ops = [_nop] * 256
         self.ops[ord('i')] = _load_int
         self.ops[ord('s')] = _load_str
@@ -338,46 +353,66 @@ class VM(object):
         self.ops[0x8d] = _set
         self.ops[0x8e] = _copy
 
+class JamProgram(object):
+    def __init__(self, jam, **vm_options):
+        self.vm = VM(**vm_options)
+        self.exec_bytes, self.line_ips = VM.compile_exec_bytes(jam)
+        self.funcs = None
+
+    def err_line_trace(self):
+        return self.vm.err_line_trace(self.line_ips)
+
+    def __call__(self, func_names=[]):
+        self.funcs = dict(zip(func_names, self.vm.exec(self.exec_bytes)))
+
+    def __getattr__(self, func_name):
+        return lambda *args: self.vm.exec_sub(self.exec_bytes, self.funcs[func_name], *args)
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='MiniP v0.1 | Compile and execute ky/jam scripts')
     parser.add_argument('source', nargs='?',
                         help='source file')
     parser.add_argument('-o', '--output',
-                        help='output jamcode file')
+                        help='output jam file (implies compile-only)')
     parser.add_argument('-c', '--compile-only', action='store_true',
-                        help='compile to jamcode, then exit (do not execute)')
+                        help='compile to jam, then exit (do not execute)')
     parser.add_argument('--compiler-jam',
-                        help='compiler jamcode file')
+                        help='compiler jam file')
     parser.add_argument('--debug', action='store_true',
                         help='compile with debug information')
     parser.add_argument('--jam', action='store_true',
-                        help='source is jamcode')
+                        help='source is jam')
     args = parser.parse_args()
 
     minip_jam = open(args.compiler_jam or 'minip.jam').read()
     source = open(args.source) if args.source else sys.stdin
-    is_source_jamcode = args.jam or (args.source and args.source[-4:].lower()==".jam")
+    is_source_jam = args.jam or (args.source and args.source[-4:].lower()==".jam")
+    compile_only = args.compile_only or args.output
 
-    if is_source_jamcode:
+    if is_source_jam:
         # no compilation needed, just read in and skip to execution!
         code = source.read()
     else:
-        # TODO: wire debug to compiler somehow?!
-        if args.compile_only:
+        if compile_only:
             out_file = args.output and open(args.output, "wt")
-            vm = VM(stdout=out_file, stdin=source)
-            vm.exec(VM.compile_exec_bytes(minip_jam))
-            exit(1)
         else:
-            out_file = io.StringIO()  # custom out_file is only for compile-only
-            vm = VM(stdout=out_file, stdin=source)
-            vm.exec(VM.compile_exec_bytes(minip_jam))
-            code = out_file.getvalue()
+            out_file = io.StringIO()
+        compiler = JamProgram(minip_jam, stdout=out_file, stdin=source)
+        try:
+            compiler(['compile'])
+            compiler.compile(T if args.debug else F)
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            sys.stderr.write("Compiler error on line {}".format(compiler.err_line_trace()))
+            exit(0)
+        if compile_only:
+            exit(1)
+        code = out_file.getvalue()
 
+    prog = JamProgram(code)
     try:
-        vm = VM() # start with a fresh vm, just to be safe (and reset io values)
-        vm.exec(VM.compile_exec_bytes(code))
+        prog()
     except Exception as e:
-        import traceback; traceback.print_exc()
-        sys.stderr.write("Runtime error on line {}".format(vm.err_line_num_path(code)))
+        sys.stderr.write("Runtime error on line {}".format(prog.err_line_trace()))
+        exit(0)

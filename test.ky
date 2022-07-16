@@ -1,6 +1,6 @@
 {
-  @TODO: * substitute last line for ^ to allow chaining ops
   @standard lib
+  :expose(funcs){ :LIB:funcs $funcs }
   :is{ $\80 }
   :weak{ $\81 }
   :time{ $\82 }
@@ -155,7 +155,7 @@
     ?a{ $NIL }
     !"Assertion failed"
   }
-  
+
   @sleep - this should be like pinky `after 12ms`
   @decodeb64
   @b64
@@ -255,14 +255,12 @@
   :D(){ $d() }
   :e(a){ $a|10 }
   :g{ assert(1) $1 }
-  :missing_ret(){ 123 }
   :a_global:-1
   :set_global(){ :a_global:789 $NIL }
   assert(c())
   assert(~d())
   assert(e(c())=11)
   assert(g())
-  assert(missing_ret()=123)
   set_global()
   assert(a_global=789)
   
@@ -341,9 +339,9 @@
 
   @ pipe
   set(dynamic_test_array,0,69)
-  set(|,1,2)
-  set(|,2,4)
-  set(|,3,6)
+  set(dynamic_test_array,1,2)
+  set(dynamic_test_array,2,4)
+  set(dynamic_test_array,3,6)
   assert(get(dynamic_test_array,0)=69)
   assert(get(dynamic_test_array,1)=2)
   assert(get(dynamic_test_array,2)=4)
