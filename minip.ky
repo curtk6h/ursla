@@ -67,13 +67,11 @@
   :CURLY_BRACE_R:7d
   :TILDA:7e
   
-  :_result:,NIL,NIL,NIL,NIL,NIL
-  :set_result(i,x){
-    $set(_result,i,x)
-  }
-  :result(i){
-    $get(_result,i)
-  }
+  :r0:NIL @ unused because it always gets returned on the stack
+  :r1:NIL
+  :r2:NIL
+  :result2(a,b){ :r1:b $a }
+  :result3(a,b,c){ :r1:b :r2:c $a }
   :_build_char_map(char_map){
     :c:7f
     ?c>-1{
@@ -474,8 +472,7 @@
       :msg:join(EMPTY_DATA,(,"Expected int got ",get(code,i)))
       Compiler_throw_syntax_err(code,i,msg)
     }
-    set_result(0,x*s)
-    $j
+    $result2(j,x*s)
   }
   :Compiler_parse_symbol(comp,code,i){
     ?~is_word(get(code,i)){
@@ -495,8 +492,7 @@
       :id:symbols_n
       Vector_append(symbols,symbol)
     }
-    set_result(0,id)
-    $i+n
+    $result2(i+n,id)
   }
   :Compiler_parse_eol(comp,code,i){
     :c:get(code,i)
@@ -508,7 +504,7 @@
   }
   :Compiler_c_integer(comp,code,i){
     :i:Compiler_parse_int(code,i)
-    Compiler_append_op_w_short(comp,LODI,result(0))
+    Compiler_append_op_w_short(comp,LODI,r1)
     $i
   }
   :Compiler_c_operand(comp,code,i){
@@ -532,7 +528,7 @@
     @variable / function call
     ?is_word(c){
       :i:Compiler_parse_symbol(comp,code,i)
-      :symbol_id:result(0)
+      :symbol_id:r1
       @local
       :lv:Compiler_lv(comp)
       :li:find(Vector_v(lv),0,Vector_n(lv),symbol_id)
@@ -567,7 +563,7 @@
     @native
     ?c=BACKSLASH{
       :i:Compiler_parse_int(code,i+1)
-      Compiler_append_op_w_byte(comp,NATV,result(0))
+      Compiler_append_op_w_byte(comp,NATV,r1)
       $i
     }
     :msg:join(EMPTY_DATA,(,"Invalid operand ",char(c)))
@@ -658,7 +654,7 @@
     }:?c=COLON{
       @function or variable assignment
       :i:Compiler_parse_symbol(comp,code,i+1)
-      :symbol_id:result(0)
+      :symbol_id:r1
       :c:get(code,i)
       ?~((c=COLON)|(c=PAREN_L)|(c=CURLY_BRACE_L)){
         @ variable declaration
@@ -696,7 +692,7 @@
             :i:i+1
             ?~(get(code,i)=PAREN_R){
               :i:Compiler_parse_symbol(comp,code,i) 
-              Vector_append(fv,result(0))
+              Vector_append(fv,r1)
               ?get(code,i)=COMMA{
                 :i:i+1
               }
