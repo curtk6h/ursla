@@ -30,10 +30,9 @@
   :data{ $\88 }
   :array{ $\89 }
   :len{ $\8a }
-  :cmp{ $\8b }
-  :get{ $\8c }
-  :set{ $\8d }
-  :copy{ $\8e }
+  :get{ $\8b }
+  :set{ $\8c }
+  :copy{ $\8d }
   
   :EMPTY_DATA:""
   :EMPTY_ARRAY:array(0)
@@ -605,17 +604,8 @@
     }
     $i
   }
-  :is_logical_operator(c){
-    $(c=VERTICAL_BAR)|(c=AMPERSAND)|(c=CARET)
-  }
-  :is_comparison_operator(c){
-    $(c=EQ_SIGN)|(c=LT_SIGN)|(c=GT_SIGN)
-  }
-  :is_arithmetic_operator(c){
-    $(c=PLUS_SIGN)|(c=HYPHEN)|(c=ASTERISK)|(c=SLASH)|(c=PERCENT_SIGN)
-  }
   :is_binary_operator(c){
-    $is_logical_operator(c)|is_comparison_operator(c)|is_arithmetic_operator(c)
+    $(c=VERTICAL_BAR)|(c=AMPERSAND)|(c=CARET)|(c=EQ_SIGN)|(c=LT_SIGN)|(c=GT_SIGN)|(c=PLUS_SIGN)|(c=HYPHEN)|(c=ASTERISK)|(c=SLASH)|(c=PERCENT_SIGN)
   }
   :Compiler_c_expr(comp,code,i){
     :i:Compiler_c_unary_op(comp,code,i)

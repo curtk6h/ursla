@@ -10,10 +10,9 @@
   :data{ $\88 }
   :array{ $\89 }
   :len{ $\8a }
-  :cmp{ $\8b }
-  :get{ $\8c }
-  :set{ $\8d }
-  :copy{ $\8e }
+  :get{ $\8b }
+  :set{ $\8c }
+  :copy{ $\8d }
   
   :EMPTY_DATA:""
   :EMPTY_ARRAY:array(0)
@@ -315,9 +314,6 @@
   assert(get(some_data,0)=64)
   assert(get(some_data,6)=63)
   out(some_data)
-  assert(cmp(some_data,some_data_expected)=0)
-  assert(cmp(some_data,"dynamib")=1)
-  assert(cmp(some_data,"dynamid")=-1)
   :some_data_copy:data(7)
   assert(copy(some_data_copy,some_data,0,0,7)=some_data)
   assert(copy(some_data_copy,some_data,0,0,7)=some_data)

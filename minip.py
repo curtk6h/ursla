@@ -2,7 +2,7 @@
 
 # TODO:
 # - add get/set syntax? foo:x:1 / foo.x
-# - ensure all funcs end in return value (that's right, no ending with "}:{ $x }")
+# - ensure all funcs end in return value (that's right, no ending with if/else "}:{ $x }")
 # - add undefined to make missing args easier to debug in function calls
 # - add types?
 # - use intarray instead of byte array to avoid unp
@@ -17,9 +17,6 @@ def int16(value):
 
 def uint16(value):
     return value & 0xFFFF
-
-def cmp(a, b):
-    return (a > b) - (a < b)
 
 _BIT_POS = [0, 0, 1, 26, 2, 23, 27, 0, 3, 16, 24, 30, 28, 11, 0, 13, 4, 7, 17, 0, 25, 22, 31, 15, 29, 10, 12, 6, 0, 21, 14, 9, 5, 20, 8, 19, 18]
 
@@ -294,9 +291,6 @@ class VM(object):
         def _len(exec_bytes, ip):
             os[-1] = len(os[-1])
             return ip
-        def _cmp(exec_bytes, ip):
-            os[-1] = cmp(os[-2], os.pop())
-            return ip
         def _get(exec_bytes, ip):
             i, a = os.pop(), os.pop()
             os.append(a[uint16(i)])
@@ -353,10 +347,9 @@ class VM(object):
         self.ops[0x88] = _data
         self.ops[0x89] = _array
         self.ops[0x8a] = _len
-        self.ops[0x8b] = _cmp
-        self.ops[0x8c] = _get
-        self.ops[0x8d] = _set
-        self.ops[0x8e] = _copy
+        self.ops[0x8b] = _get
+        self.ops[0x8c] = _set
+        self.ops[0x8d] = _copy
 
 class JamProgram(object):
     def __init__(self, jam, **vm_options):
