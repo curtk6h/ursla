@@ -1,7 +1,6 @@
 #!/usr/local/bin/python3
 
 # TODO:
-# - add get/set syntax? foo:x:1 / foo.x
 # - ensure all funcs end in return value (that's right, no ending with if/else "}:{ $x }")
 # - add undefined to make missing args easier to debug in function calls
 # - add types?
@@ -112,14 +111,11 @@ class VM(object):
 
     @staticmethod
     def tune_exec_bytes(exec_bytes):
-        # NOO HANLE IN COMPILER? if single return statement w/ no args,
-        # indicate inlinable, then totally replace with code. ADD stack kw @0??
-        
-        # inline single command global calls i.e. natives
+        # Things to do here:
+        # Inline single command global calls w/ that don't provide args (ie. natives):
         #  1. record (lodr, set-x) where addr[+1] = return
         #  2. (get-x, jsr) with (native)
-        # make compound ops:
-        #  inc local, ?!=0{, get 2 locals, get local + attr, get local 0
+        # Make compound ops: get element by constant, set element by constant, inc local, ?!=0{, get 2 locals, get local + attr, get local 0 - 5
         # window = [0, 0, 0, 0]
         # ip = 0
         # while ip < len(exec_bytes):
