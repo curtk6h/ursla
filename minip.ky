@@ -438,7 +438,7 @@
     ?c=m{
       $i+1
     }
-    :msg:join(EMPTY_DATA,(,"Expected ",char(m)," got ",char(c)))
+    :msg:join(EMPTY_DATA,(,"Expected char '",char(m),"'"))
     Compiler_throw_syntax_err(code,i,msg)
   }
   :Compiler_skip_ws(code,i){
@@ -469,15 +469,13 @@
       :n:n-1
     }^
     ?i=j{
-      :msg:join(EMPTY_DATA,(,"Expected int got ",get(code,i)))
-      Compiler_throw_syntax_err(code,i,msg)
+      Compiler_throw_syntax_err(code,i,"Expected integer")
     }
     $result2(j,x*s)
   }
   :Compiler_parse_symbol(comp,code,i){
     ?~is_word(get(code,i)){
-      :msg:join(EMPTY_DATA,(,"Expected symbol got ",char(get(code,i))))
-      Compiler_throw_syntax_err(code,i,msg) 
+      Compiler_throw_syntax_err(code,i,"Expected symbol") 
     }
     :n:0
     ?is_word(get(code,i+n)){
@@ -499,8 +497,7 @@
     ?(c=NL)|(c=SPACE){
       $i+1
     }
-    :msg:join(EMPTY_DATA,(,"Expected end-of-line got '",char(c),"'"))
-    Compiler_throw_syntax_err(code,i,msg)
+    Compiler_throw_syntax_err(code,i,"Expected end-of-line")
   }
   :Compiler_c_integer(comp,code,i){
     :i:Compiler_parse_int(code,i)
@@ -566,8 +563,7 @@
       Compiler_append_op_w_byte(comp,NATV,r1)
       $i
     }
-    :msg:join(EMPTY_DATA,(,"Invalid operand ",char(c)))
-    Compiler_throw_syntax_err(code,i,msg)
+    Compiler_throw_syntax_err(code,i,"Invalid operand")
   }
   :Compiler_c_unary_op(comp,code,i){
     @ pre operators (pick one -- can't think of a reason to intermix or repeat)
