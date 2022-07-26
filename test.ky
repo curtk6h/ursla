@@ -153,17 +153,11 @@
     !"Assertion failed"
   }
 
-  @sleep - this should be like pinky `after 12ms`
-  @decodeb64
-  @b64
-  @xtod aka format
-  @dtoi aka parseint
-  
   @ logical ops
   assert(1)
   assert(-1)
   assert(~0)
-  @assert(~~~0) @ no longer supported because why?
+  @ assert(~~~0) @ no longer supported because why?
   assert(~(0&0))
   assert(~(0&1))
   assert(~(1&0))

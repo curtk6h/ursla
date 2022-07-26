@@ -1,24 +1,9 @@
 {
-  @variable shorthand naming
-  @ a : array
-  @ v : vector/array
-  @ d : data
-  @ t : text
-  @ i : index
-  @ j : end index or nested index
-  @ k : nested index
-  @ n : length data/array or counter
-  @ x : numeric or other value
-  @ y : numeric or other value
-  @ z : numeric or other value
-  @ a : numeric or other value, as part of a set
-  @ b : numeric or other value, as part of a set
-  @ c : numeric or other value, as part of a set
-  @ r : result
-  @ m : match or multiplier or alt counter
+  @
+  @ Stdlib
+  @
 
-  @standard lib
-  :expose(funcs){ :_exposed_funcs:funcs $funcs }
+  @ Stdlib | Natives
   :is{ $\80 }
   :weak{ $\81 }
   :time{ $\82 }
@@ -33,10 +18,13 @@
   :get{ $\8b }
   :set{ $\8c }
   :copy{ $\8d }
+  :expose(funcs){ :_exposed_funcs:funcs $funcs }
   
+  @ Stdlib | Misc Constants
   :EMPTY_DATA:""
   :EMPTY_ARRAY:array(0)
-  
+
+  @ Stdlib | Characters
   :NL:0a
   :TAB:09
   :SPACE:20
@@ -67,26 +55,22 @@
   :CURLY_BRACE_R:7d
   :TILDA:7e
   
+  @ Stdlib | Results (ugly way to return multiple values)
   :r0:NIL @ unused because it always gets returned on the stack
   :r1:NIL
   :r2:NIL
   :result2(a,b){ :r1:b $a }
   :result3(a,b,c){ :r1:b :r2:c $a }
-  :_build_char_map(char_map){
-    :c:7f
-    ?c>-1{
-      set(char_map,c,set(data(1),0,c))
-      :c:c-1
-    }^
-    $char_map
+
+  @ Stdlib | Misc
+  :select(x,a,b){
+    ?x{ $a }:{ $b }
   }
-  :_char_map:_build_char_map(array(80))
-  :char(x){
-    $get(_char_map,x)
+  :default(x,def){
+    ?is(x,NIL){ $def }:{ $x }
   }
-  :digit(x){
-    $get(_char_map,x+30)
-  }
+
+  @ Stdlib | Integer
   :fp(i,f){
     $(i*10000)+f
   }
@@ -110,6 +94,55 @@
     }^
     $d
   }
+
+  @ Stdlib | Text
+  :pad(t,c,n){
+    :padded:data(n+len(t))
+    copy(padded,t,n,0,len(t))
+    ?n>0{
+      :n:n-1
+      set(padded,n,c)
+    }^
+    $padded
+  }
+  :_build_char_map(char_map){
+    :c:7f
+    ?c>-1{
+      set(char_map,c,set(data(1),0,c))
+      :c:c-1
+    }^
+    $char_map
+  }
+  :_char_map:_build_char_map(array(80))
+  :char(x){
+    $get(_char_map,x)
+  }
+  :digit(x){
+    $get(_char_map,x+30)
+  }
+  :_hex_digits:"0123456789abcdef"
+  :hex_digit(x){
+    $get(_hex_digits,x)
+  }
+  :parse_hex_digit(c){
+    :x:c-61
+    ?x<0{ $x+31 }
+    $x+0a
+  }
+  :is_digit(x){
+    $((x>2f)&(x<3a))
+  }
+  :is_hex_digit(x){
+    $((x>2f)&(x<3a))|((x>60)&(x<67))
+  }
+  :is_alpha(x){
+    $((x>40)&(x<5b))|((x>60)&(x<7b))
+  }
+  :is_word(x){
+    $((x>40)&(x<5b))|((x>60)&(x<7b))|((x>2f)&(x<3a))|(x=5f)
+  }
+  
+  @ Stdlib | Data
   :dchunk(d,i,n){
     $copy(data(n),d,0,i,n)
   }
@@ -152,6 +185,8 @@
   :joinlines(a){
     $join(char(NL),a)
   }
+
+  @ Stdlib | Array
   :achunk(a,i,n){
     $copy(array(n),a,0,i,n)
   }
@@ -167,44 +202,8 @@
     copy(c,b,len(a),0,len(b))
     $c
   }
-  :flatten(arrays){
-    :n:len(arrays)
-    :i:n-1
-    ?i=0{ $EMPTY_ARRAY }
-    :flattened_n:0
-    ?i>-1{
-      :flattened_n:flattened_n+len(get(arrays,i))
-      :i:i-1
-    }^
-    :flattened:array(flattened_n)
-    :flattened_i:0 
-    :i:0
-    ?i<n{
-      :cur_array:get(arrays,i)
-      copy(flattened,cur_array,flattened_i,0,len(cur_array))
-      :flattened_i:flattened_i+len(cur_array)
-      :i:i+1
-    }^
-    $flattened 
-  }
-  :sum(ints){
-    :x:0
-    :n:len(ints)-1
-    ?n>-1{
-      :x:x+get(ints,n)
-      :n:n-1
-    }^
-    $x
-  }
-  :select(x,a,b){
-    ?x{ $a }:{ $b }
-  }
-  :default(x,def){
-    ?is(x,NIL){ $def }:{ $x }
-  }
-  :empty(x){
-    $is(x,NIL)|(len(x)=0)
-  }
+
+  @ Stdlib | Data/Array
   :count(a,i,j,x){
     :n:0
     ?i<j{
@@ -233,51 +232,8 @@
     }^
     $-1
   }
-  :pad(t,c,n){
-    :padded:data(n+len(t))
-    copy(padded,t,n,0,len(t))
-    ?n>0{
-      :n:n-1
-      set(padded,n,c)
-    }^
-    $padded
-  }
-  :has(a,x){
-    $find(a,0,len(a),x)>-1
-  }
-  :map(a,f){
-    :i:0
-    :j:len(a)
-    ?i<j{
-      set(a,i,f(get(a,i)))
-      :i:i+1
-    }
-    $a
-  }
   
-  :_hex_digits:"0123456789abcdef"
-  :hex_digit(x){
-    $get(_hex_digits,x)
-  }
-  :parse_hex_digit(c){
-    :x:c-61
-    ?x<0{ $x+31 }
-    $x+0a
-  }
-  :is_digit(x){
-    $((x>2f)&(x<3a))
-  }
-  :is_hex_digit(x){
-    $((x>2f)&(x<3a))|((x>60)&(x<67))
-  }
-  :is_alpha(x){
-    $((x>40)&(x<5b))|((x>60)&(x<7b))
-  }
-  :is_word(x){
-    $((x>40)&(x<5b))|((x>60)&(x<7b))|((x>2f)&(x<3a))|(x=5f)
-  }
-  
-  @Vector
+  @ Stdlib | Vector
   :Vector_v(vec){ $get(vec,0) }
   :Vector_n(vec){ $get(vec,1) }
   :Vector_capacity(vec){ $len(get(vec,0)) }
@@ -300,7 +256,7 @@
     :i:Vector_n(vec)-1
     :x:Vector_get(vec,i)
     Vector_set_n(vec,i)
-    $vec
+    $x
   }
   :Vector_append(vec,x){
     :v:Vector_v(vec)
@@ -313,16 +269,6 @@
     Vector_set(vec,i,x)
     $vec
   }
-  :Vector_output_chars(vec){
-    :i:0
-    :v:get(vec,0)
-    :n:get(vec,1)
-    ?i<n{
-      out(get(v,i))
-      :i:i+1
-    }^
-    $vec
-  }
   :Vector_init(vec,capacity){
     Vector_set_v(vec,array(capacity))
     Vector_set_n(vec,0)
@@ -332,7 +278,11 @@
     $Vector_init(array(2),capacity)
   }
   
-  @Compiler
+  @
+  @ Compiler
+  @
+
+  @ Compiler | Operator Constants
   :NOP:20
   :LODI:69
   :LODS:73
@@ -354,8 +304,12 @@
   :THRO:21
   :NOT:7e
   :NEG:6e
-  :Compiler_c_expr @tbd
-  :Compiler_c_code_block @tbd
+
+  @ Compiler | Forward Declarations
+  :Compiler_c_expr
+  :Compiler_c_code_block
+
+  @ Compiler | Getters / Setters
   :Compiler_jam(comp){ $get(comp,0) }
   :Compiler_jam_idx(comp){ $get(comp,1) }
   :Compiler_set_jam_idx(comp,i){ $set(comp,1,i) }
@@ -364,9 +318,12 @@
   :Compiler_vs(comp){ $get(comp,4) }
   :Compiler_gv(comp){ $Vector_get(get(comp,4),0) }
   :Compiler_lv(comp){ $Vector_last(get(comp,4)) }
+
   :Compiler_jam_for_output(comp){
     $dchunk(Compiler_jam(comp),0,Compiler_jam_idx(comp))
   }
+
+  @ Compiler | Jam Output
   :Compiler_encode_byte(comp,i,x){
     :jam:Compiler_jam(comp)
     set(jam,i+0,hex_digit(unpack(x,+f0)))
@@ -433,6 +390,8 @@
     :line_arrow:pad("^",SPACE,i-line_start)
     !joinlines(,join(EMPTY_DATA,(,"Syntax error on line ",itod(line_num),": ",msg)),line,line_arrow)
   }
+
+  @ Compiler | Parsing Helpers
   :Compiler_parse_char(code,i,m){
     :c:get(code,i)
     ?c=m{
@@ -440,12 +399,6 @@
     }
     :msg:join(EMPTY_DATA,(,"Expected char '",char(m),"'"))
     Compiler_throw_syntax_err(code,i,msg)
-  }
-  :Compiler_skip_ws(code,i){
-    ?get(code,i)=SPACE{
-      :i:i+1
-    }
-    $i
   }
   :Compiler_parse_int(code,i){
     :s:1
@@ -497,8 +450,10 @@
     ?(c=NL)|(c=SPACE){
       $i+1
     }
-    Compiler_throw_syntax_err(code,i,"Expected end-of-line")
+    Compiler_throw_syntax_err(code,i,"Expected end of line")
   }
+
+  @ Compiler | Compile
   :Compiler_c_integer(comp,code,i){
     :i:Compiler_parse_int(code,i)
     Compiler_append_op_w_short(comp,LODI,r1)
@@ -506,11 +461,11 @@
   }
   :Compiler_c_operand(comp,code,i){
     :c:get(code,i)
-    @integer
+    @ integer
     ?is_digit(c)|(c=PLUS_SIGN)|(c=HYPHEN){
       $Compiler_c_integer(comp,code,i)
     }
-    @text
+    @ text
     ?c=QUOTATION_MARK{
       :i:i+1
       :c:get(code,i)
@@ -522,18 +477,18 @@
       Compiler_append_data(comp,code,i,j)
       $j+1
     }
-    @variable / function call
+    @ variable / function call
     ?is_word(c){
       :i:Compiler_parse_symbol(comp,code,i)
       :symbol_id:r1
-      @local
+      @ local
       :lv:Compiler_lv(comp)
       :li:find(Vector_v(lv),0,Vector_n(lv),symbol_id)
       ?li>-1{
         Compiler_append_op_w_byte(comp,GETL,li)
         $i
       }
-      @global
+      @ global
       :gv:Compiler_gv(comp)
       :gi:find(Vector_v(gv),0,Vector_n(gv),symbol_id)
       ?gi>-1{
@@ -542,12 +497,12 @@
       }
       Compiler_throw_syntax_err(code,i,"Variable not defined")
     }
-    @group
+    @ group
     ?c=PAREN_L{
       :i:Compiler_c_expr(comp,code,i+1)
       $Compiler_parse_char(code,i,PAREN_R)
     }
-    @array
+    @ array
     ?c=COMMA{
       :n:0
       ?get(code,i)=COMMA{
@@ -557,7 +512,7 @@
       Compiler_append_op_w_short(comp,LODA,n)
       $i
     }
-    @native
+    @ native
     ?c=BACKSLASH{
       :i:Compiler_parse_int(code,i+1)
       Compiler_append_op_w_byte(comp,NATV,r1)
@@ -589,6 +544,7 @@
       Compiler_swap_chunks(comp,operand_start,args_start,args_start,Compiler_jam_idx(comp))
       Compiler_append_op(comp,JSR)
     }^
+    @ apply pre operator
     ?pre_op=TILDA{
       Compiler_append_op(comp,NOT)
     }:?pre_op=HYPHEN{
@@ -611,7 +567,7 @@
   :Compiler_c_statement(comp,code,i){
     :c:get(code,i)
     ?c=QUESTION_MARK{
-      @if/while/try
+      @ if / while / try
       ?get(code,i+1)=CURLY_BRACE_L{
         :here:Compiler_jam_idx(comp)
         Compiler_append_op_w_addr(comp,TRY,0)
@@ -648,7 +604,7 @@
       }
       Compiler_encode_short(comp,here+1,Compiler_jam_idx(comp))
     }:?c=COLON{
-      @function or variable assignment
+      @ function or variable assignment
       :i:Compiler_parse_symbol(comp,code,i+1)
       :symbol_id:r1
       :c:get(code,i)
@@ -709,24 +665,24 @@
         }
       }
     }:?is_word(c){
-      @expression
+      @ expression
       :i:Compiler_c_expr(comp,code,i)
       Compiler_append_op(comp,DROP)
     }:?c=DOLLAR_SIGN{
-      @return
+      @ return
       :i:Compiler_c_expr(comp,code,i+1)
       Compiler_append_op(comp,RET)
     }:?c=EXCLAMATION_MARK{
-      @throw
+      @ throw
       :i:Compiler_c_expr(comp,code,i+1)
       Compiler_append_op(comp,THRO)
     }:?c=AT_SIGN{
-      @annotation
+      @ annotation
       ?~(get(code,i)=NL){
         :i:i+1
       }^
     }:{
-      @empty line is valid
+      @ empty line is valid
     }
     ?Compiler_debug(comp)&(get(code,i)=NL){
       Compiler_append_op(comp,NL)
@@ -744,6 +700,8 @@
     Compiler_c_code_block(comp,code,0)
     $comp
   }
+
+  @ Compiler | Initialization / Allocation
   :Compiler_init_symbols(symbols){
     Vector_append(symbols,"NIL")
     Vector_append(symbols,"ERR")
@@ -774,6 +732,10 @@
   :Compiler(debug){
     $Compiler_init(array(5),debug)
   }
+
+  @
+  @ Entry Point(s)
+  @
   :compile(debug){
     $out(Compiler_jam_for_output(Compiler_compile(Compiler(debug),in())))
   }

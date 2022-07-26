@@ -1,11 +1,7 @@
 #!/usr/local/bin/python3
 
 # TODO:
-# - ensure all funcs end in return value (that's right, no ending with if/else "}:{ $x }")
-# - add types?
-# - add units?
 # - use intarray instead of byte array to avoid unp
-# - add yield instruction or alternative
 # - vsc syntax highlighting
 # - vsc preview
 
