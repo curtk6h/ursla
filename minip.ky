@@ -4,20 +4,20 @@
   @
 
   @ Stdlib | Natives
-  :is{ $\80 }
-  :weak{ $\81 }
-  :time{ $\82 }
-  :in{ $\83 }
-  :out{ $\84 }
-  :pack{ $\85 }
-  :unpack{ $\86 }
-  :clamp{ $\87 }
-  :data{ $\88 }
-  :array{ $\89 }
-  :len{ $\8a }
-  :get{ $\8b }
-  :set{ $\8c }
-  :copy{ $\8d }
+  :is{ \80 }
+  :weak{ \81 }
+  :time{ \82 }
+  :in{ \83 }
+  :out{ \84 }
+  :pack{ \85 }
+  :unpack{ \86 }
+  :clamp{ \87 }
+  :data{ \88 }
+  :array{ \89 }
+  :len{ \8a }
+  :get{ \8b }
+  :set{ \8c }
+  :copy{ \8d }
   :expose(funcs){ :_exposed_funcs:funcs $funcs }
   
   @ Stdlib | Misc Constants
@@ -512,12 +512,6 @@
       Compiler_append_op_w_short(comp,LODA,n)
       $i
     }
-    @ native
-    ?c=BACKSLASH{
-      :i:Compiler_parse_int(code,i+1)
-      Compiler_append_op_w_byte(comp,NATV,r1)
-      $i
-    }
     Compiler_throw_syntax_err(code,i,"Invalid operand")
   }
   :Compiler_c_unary_op(comp,code,i){
@@ -668,6 +662,10 @@
       @ expression
       :i:Compiler_c_expr(comp,code,i)
       Compiler_append_op(comp,DROP)
+    }:?c=BACKSLASH{
+      @ native
+      :i:Compiler_parse_int(code,i+1)
+      Compiler_append_op_w_byte(comp,NATV,r1)
     }:?c=DOLLAR_SIGN{
       @ return
       :i:Compiler_c_expr(comp,code,i+1)

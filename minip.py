@@ -250,53 +250,53 @@ class VM(object):
         # REMINDER: write ip to fs[-1] before executing subroutine in func v
         def _is(exec_bytes, ip):
             os[-1] = -1 if os[-2] is os.pop() else 0
-            return ip
+            return _ret(exec_bytes, ip)
         def _weak(exec_bytes, ip):
-            return ip
+            return _ret(exec_bytes, ip)
         def _time(exec_bytes, ip):
             os.append(int(round((time.time()-self.start_time)*1000)))
-            return ip
+            return _ret(exec_bytes, ip)
         def _in(exec_bytes, ip):
             os.append(bytearray(self.stdin.read(), 'ascii'))
-            return ip
+            return _ret(exec_bytes, ip)
         def _out(exec_bytes, ip):
             self.stdout.write(self.primitive_to_str(os[-1]))
-            return ip
+            return _ret(exec_bytes, ip)
         def _pack(exec_bytes, ip):
             value, mask = os.pop(), os.pop()
             os[-1] = uint16((os[-1]&~mask)|(value<<ffb(mask)))
-            return ip
+            return _ret(exec_bytes, ip)
         def _unpack(exec_bytes, ip):
             mask = os.pop()
             os[-1] = ((uint16(os[-1])&mask)>>ffb(mask))
-            return ip
+            return _ret(exec_bytes, ip)
         def _clamp(exec_bytes, ip):
             max_, min_ = os.pop(), os.pop()
             os[-1] = min(max(os[-1], min_), max_)
-            return ip
+            return _ret(exec_bytes, ip)
         def _data(exec_bytes, ip):
             os[-1] = bytearray(os[-1])
-            return ip
+            return _ret(exec_bytes, ip)
         def _array(exec_bytes, ip):
             os.append([None]*uint16(os.pop()))
-            return ip
+            return _ret(exec_bytes, ip)
         def _len(exec_bytes, ip):
             os[-1] = len(os[-1])
-            return ip
+            return _ret(exec_bytes, ip)
         def _get(exec_bytes, ip):
             i, a = os.pop(), os.pop()
             os.append(a[uint16(i)])
-            return ip
+            return _ret(exec_bytes, ip)
         def _set(exec_bytes, ip):
             x, i, a = os.pop(), os.pop(), os[-1]
             a[uint16(i)] = x
-            return ip
+            return _ret(exec_bytes, ip)
         def _copy(exec_bytes, ip):
             n, si, di, src = os.pop(), os.pop(), os.pop(), os.pop()
             dest = os[-1]
             for j in range(n):
                 dest[di+j] = src[si+j]
-            return ip
+            return _ret(exec_bytes, ip)
         self.ops = [_nop] * 256
         self.ops[ord('i')] = _load_int
         self.ops[ord('s')] = _load_str

@@ -1,18 +1,20 @@
 {
-  :is{ $\80 }
-  :weak{ $\81 }
-  :time{ $\82 }
-  :in{ $\83 }
-  :out{ $\84 }
-  :pack{ $\85 }
-  :unpack{ $\86 }
-  :clamp{ $\87 }
-  :data{ $\88 }
-  :array{ $\89 }
-  :len{ $\8a }
-  :get{ $\8b }
-  :set{ $\8c }
-  :copy{ $\8d }
+  @ Stdlib | Natives
+  :is{ \80 }
+  :weak{ \81 }
+  :time{ \82 }
+  :in{ \83 }
+  :out{ \84 }
+  :pack{ \85 }
+  :unpack{ \86 }
+  :clamp{ \87 }
+  :data{ \88 }
+  :array{ \89 }
+  :len{ \8a }
+  :get{ \8b }
+  :set{ \8c }
+  :copy{ \8d }
+  :expose(funcs){ :_exposed_funcs:funcs $funcs }
   
   :EMPTY_DATA:""
   :EMPTY_ARRAY:array(0)
