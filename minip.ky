@@ -522,8 +522,9 @@
   :Compiler_c_unary_op(comp,code,i){
     @ pre operators (pick one -- can't think of a reason to intermix or repeat)
     @ NOTE: negative requires lookahead (probably should tokenize afterall)
-    :pre_op:get(code,i)
-    ?(pre_op=TILDA)|((pre_op=HYPHEN)&~is_digit(get(code,i+1))){
+    :not:(get(code,i)=TILDA)
+    :neg:(get(code,i)=HYPHEN)&~is_digit(get(code,i+1))
+    ?not|neg{
       :i:i+1
     }
     @ operand
@@ -544,9 +545,9 @@
       Compiler_append_op(comp,JSR)
     }^
     @ apply pre operator
-    ?pre_op=TILDA{
+    ?not{
       Compiler_append_op(comp,NOT)
-    }:?pre_op=HYPHEN{
+    }:?neg{
       Compiler_append_op(comp,NEG)
     }
     $i

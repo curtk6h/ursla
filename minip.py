@@ -307,7 +307,7 @@ class VM(object):
         self.ops[ord('r')] = _load_int
         self.ops[ord(';')] = _drop        
         self.ops[ord('~')] = _not    
-        self.ops[ord('-')] = _neg
+        self.ops[ord('n')] = _neg
         self.ops[ord('=')] = _eq
         self.ops[ord('<')] = _lt
         self.ops[ord('>')] = _gt
