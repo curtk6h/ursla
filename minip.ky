@@ -132,6 +132,9 @@
   :is_digit(x){
     $((x>2f)&(x<3a))
   }
+  :is_digit_or_sign(x){
+    $((x>2f)&(x<3a))|(x=PLUS_SIGN)|(x=HYPHEN)
+  }
   :is_hex_digit(x){
     $((x>2f)&(x<3a))|((x>60)&(x<67))
   }
@@ -462,7 +465,7 @@
   :Compiler_c_operand(comp,code,i){
     :c:get(code,i)
     @ integer
-    ?is_digit(c)|(c=PLUS_SIGN)|(c=HYPHEN){
+    ?is_digit_or_sign(c){
       $Compiler_c_integer(comp,code,i)
     }
     @ text
@@ -482,11 +485,13 @@
       :i:Compiler_parse_symbol(comp,code,i)
       :symbol_id:r1
       @ local
-      :lv:Compiler_lv(comp)
-      :li:find(Vector_v(lv),0,Vector_n(lv),symbol_id)
-      ?li>-1{
-        Compiler_append_op_w_byte(comp,GETL,li)
-        $i
+      ?Vector_n(Compiler_vs(comp))>1{
+        :lv:Compiler_lv(comp)
+        :li:find(Vector_v(lv),0,Vector_n(lv),symbol_id)
+        ?li>-1{
+          Compiler_append_op_w_byte(comp,GETL,li)
+          $i
+        }
       }
       @ global
       :gv:Compiler_gv(comp)
@@ -614,6 +619,7 @@
       }:{
         :lv:Compiler_lv(comp)
         :ln:Vector_n(lv)
+        :gi:-1
         :li:find(Vector_v(lv),0,ln,symbol_id)
         ?li=-1{
           :gv:Compiler_gv(comp)
@@ -622,6 +628,9 @@
             :li:ln
             Vector_append(lv,symbol_id)
           }
+        }
+        ?(gi=-1)&(Vector_n(Compiler_vs(comp))=1){
+          :gi:li
         }
         ?c=COLON{
           @ simple assignment
@@ -652,7 +661,7 @@
           Compiler_encode_short(comp,top+1,Compiler_jam_idx(comp))
           Compiler_append_op_w_addr(comp,LODR,top+5)
         }
-        ?li=-1{
+        ?gi>-1{
           Compiler_append_op_w_short(comp,SETG,gi)
         }:{
           Compiler_append_op_w_byte(comp,SETL,li)

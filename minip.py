@@ -1,6 +1,7 @@
 #!/usr/local/bin/python3
 
 # TODO:
+# - cleanup local/global mess here and in compiler
 # - use intarray instead of byte array to avoid unp
 # - vsc syntax highlighting
 # - vsc preview
@@ -27,12 +28,13 @@ class VMError(Exception):
 class VM(object):
     def __init__(self, stdout=None, stdin=None):
         self.operand_stack = []
-        self.var_stack = [None] * 256 * 50
-        self.var_stack[0] = None
-        self.var_stack[1] = None
-        self.var_stack[2] = F
-        self.var_stack[3] = T
-        self.var_stack[4] = [] # func_ips
+        self.var_stack =  [None] * 256 * 50
+        self.global_vars = [None] * 1024
+        self.global_vars[0] = None
+        self.global_vars[1] = None
+        self.global_vars[2] = F
+        self.global_vars[3] = T
+        self.global_vars[4] = [] # func_ips
         self.frame_stack = [-1]
         self.err_stack = []
         self.start_time = time.time()
@@ -72,7 +74,7 @@ class VM(object):
                 ip = self.ops[exec_bytes[ip]](exec_bytes, ip+1)
         finally:
             self.frame_stack[-1] = ip
-        return self.var_stack[4]
+        return self.global_vars[4]
 
     @staticmethod
     def compile_exec_bytes(jam):
@@ -138,6 +140,7 @@ class VM(object):
         
     def _init_ops(self):
         os = self.operand_stack
+        gv = self.global_vars
         vs = self.var_stack
         fs = self.frame_stack
         def _nop(exec_bytes, ip):
@@ -209,23 +212,23 @@ class VM(object):
             fs.append(-1)
             return os.pop()
         def _args(exec_bytes, ip):
-            var_off = (len(fs)-1) * 256
-            for i in range(var_off, var_off+exec_bytes[ip])[::-1]:
-                vs[i] = os.pop()
+            vsi = (len(fs)-2)*256
+            for i in range(exec_bytes[ip])[::-1]:
+                vs[vsi+i] = os.pop()
             return ip + 1
         def _setl(exec_bytes, ip):
-            var_off = (len(fs)-1) * 256
-            vs[var_off+exec_bytes[ip]] = os.pop()
+            vsi = (len(fs)-2)*256
+            vs[vsi+exec_bytes[ip]] = os.pop()
             return ip + 2
         def _getl(exec_bytes, ip):
-            var_off = (len(fs)-1) * 256
-            os.append(vs[var_off+exec_bytes[ip]])
+            vsi = (len(fs)-2)*256
+            os.append(vs[vsi+exec_bytes[ip]])
             return ip + 2
         def _setg(exec_bytes, ip):
-            vs[self.unpack_uint(exec_bytes, ip)] = os.pop()
+            gv[self.unpack_uint(exec_bytes, ip)] = os.pop()
             return ip + 4
         def _getg(exec_bytes, ip):
-            os.append(vs[self.unpack_uint(exec_bytes, ip)])
+            os.append(gv[self.unpack_uint(exec_bytes, ip)])
             return ip + 4
         def _ret(exec_bytes, ip):
             fs.pop()
@@ -240,9 +243,9 @@ class VM(object):
             self.err_stack.pop()
             return ip
         def _throw(exec_bytes, ip):
-            vs[1] = os.pop()
+            gv[1] = os.pop()
             if not self.err_stack:
-                raise VMError(self.primitive_to_str(vs[1]))
+                raise VMError(self.primitive_to_str(gv[1]))
             frame_n, ip, operand_n = self.err_stack.pop()
             del fs[frame_n:]
             del os[operand_n:]
@@ -380,6 +383,11 @@ if __name__ == "__main__":
     is_source_jam = args.jam or (args.source and args.source[-4:].lower()==".jam")
     compile_only = args.compile_only or args.output
 
+    start_time = time.time()
+    def done():
+        print("Done in {} seconds".format(time.time()-start_time))
+        exit(0)
+
     if is_source_jam:
         # no compilation needed, just read in and skip to execution!
         code = source.read()
@@ -394,13 +402,13 @@ if __name__ == "__main__":
             compiler.compile(T if args.debug else F)
         except VMError as vm_error:
             sys.stderr.write(str(vm_error))
-            exit(0)
+            exit(1)
         except Exception as e:
             import traceback; traceback.print_exc()
             sys.stderr.write("Compiler error on line {}".format(compiler.err_line_trace()))
-            exit(0)
-        if compile_only:
             exit(1)
+        if compile_only:
+            done()
         code = out_file.getvalue()
 
     prog = JamProgram(code)
@@ -408,4 +416,6 @@ if __name__ == "__main__":
         prog()
     except Exception as e:
         sys.stderr.write("Runtime error on line {}".format(prog.err_line_trace()))
-        exit(0)
+        exit(1)
+
+    done()
