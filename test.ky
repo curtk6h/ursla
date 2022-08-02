@@ -1,10 +1,9 @@
 {
   @ Stdlib | Natives
-  :NIL
   :ERR
-  :F:0
-  :T:-1
-  :_exposed_funcs
+  :NIL
+  :T:1=1
+  :F:~T
   :is{ \80 }
   :weak{ \81 }
   :time{ \82 }
@@ -19,7 +18,10 @@
   :get{ \8b }
   :set{ \8c }
   :copy{ \8d }
-  :expose(funcs){ :_exposed_funcs:funcs $funcs }
+  :expose(funcs){
+    :ERR:funcs
+    $funcs
+  }
   @ End of Stdlib
   
   :EMPTY_DATA:""

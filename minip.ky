@@ -4,6 +4,10 @@
   @
 
   @ Stdlib | Natives
+  :ERR @ required!
+  :NIL
+  :T:1=1
+  :F:~T
   :is{ \80 }
   :weak{ \81 }
   :time{ \82 }
@@ -18,7 +22,10 @@
   :get{ \8b }
   :set{ \8c }
   :copy{ \8d }
-  :expose(funcs){ :_exposed_funcs:funcs $funcs }
+  :expose(funcs){
+    :ERR:funcs
+    $funcs
+  }
   
   @ Stdlib | Misc Constants
   :EMPTY_DATA:""
@@ -710,31 +717,12 @@
   }
 
   @ Compiler | Initialization / Allocation
-  :Compiler_init_symbols(symbols){
-    Vector_append(symbols,"NIL")
-    Vector_append(symbols,"ERR")
-    Vector_append(symbols,"F")
-    Vector_append(symbols,"T")
-    Vector_append(symbols,"_exposed_funcs")
-    $symbols
-  }
-  :Compiler_init_gv(gv){
-    Vector_append(gv,0)
-    Vector_append(gv,1)
-    Vector_append(gv,2)
-    Vector_append(gv,3)
-    Vector_append(gv,4)
-    $gv
-  }
-  :Compiler_init_vs(vs){
-    $Vector_append(vs,Compiler_init_gv(Vector(100)))
-  }
   :Compiler_init(comp,debug){
     set(comp,0,data(+7fff))
     set(comp,1,0)
     set(comp,2,debug)
-    set(comp,3,Compiler_init_symbols(Vector(1)))
-    set(comp,4,Compiler_init_vs(Vector(1)))
+    set(comp,3,Vector(1))
+    set(comp,4,Vector_append(Vector(1),Vector(100)))
     $comp
   }
   :Compiler(debug){

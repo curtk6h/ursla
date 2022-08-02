@@ -30,11 +30,6 @@ class VM(object):
         self.operand_stack = []
         self.var_stack =  [None] * 256 * 50
         self.global_vars = [None] * 1024
-        self.global_vars[0] = None
-        self.global_vars[1] = None
-        self.global_vars[2] = F
-        self.global_vars[3] = T
-        self.global_vars[4] = [] # func_ips
         self.frame_stack = [-1]
         self.err_stack = []
         self.start_time = time.time()
@@ -74,7 +69,7 @@ class VM(object):
                 ip = self.ops[exec_bytes[ip]](exec_bytes, ip+1)
         finally:
             self.frame_stack[-1] = ip
-        return self.global_vars[4]
+        return self.global_vars[0]
 
     @staticmethod
     def compile_exec_bytes(jam):
@@ -212,16 +207,16 @@ class VM(object):
             fs.append(-1)
             return os.pop()
         def _args(exec_bytes, ip):
-            vsi = (len(fs)-2)*256
+            vsi = (len(fs)-2) * 256
             for i in range(exec_bytes[ip])[::-1]:
                 vs[vsi+i] = os.pop()
             return ip + 1
         def _setl(exec_bytes, ip):
-            vsi = (len(fs)-2)*256
+            vsi = (len(fs)-2) * 256
             vs[vsi+exec_bytes[ip]] = os.pop()
             return ip + 2
         def _getl(exec_bytes, ip):
-            vsi = (len(fs)-2)*256
+            vsi = (len(fs)-2) * 256
             os.append(vs[vsi+exec_bytes[ip]])
             return ip + 2
         def _setg(exec_bytes, ip):
@@ -243,9 +238,9 @@ class VM(object):
             self.err_stack.pop()
             return ip
         def _throw(exec_bytes, ip):
-            gv[1] = os.pop()
+            gv[0] = os.pop()
             if not self.err_stack:
-                raise VMError(self.primitive_to_str(gv[1]))
+                raise VMError(self.primitive_to_str(gv[0]))
             frame_n, ip, operand_n = self.err_stack.pop()
             del fs[frame_n:]
             del os[operand_n:]
@@ -347,19 +342,23 @@ class VM(object):
         self.ops[0x8d] = _copy
 
 class JamProgram(object):
-    def __init__(self, jam, **vm_options):
+    def __init__(self, jam, func_names=[], **vm_options):
         self.vm = VM(**vm_options)
         self.exec_bytes, self.line_ips = VM.compile_exec_bytes(jam)
-        self.funcs = None
+        self.func_names = func_names
+        self.err = None
 
     def err_line_trace(self):
         return self.vm.err_line_trace(self.line_ips)
 
-    def __call__(self, func_names=[]):
-        self.funcs = dict(zip(func_names, self.vm.exec(self.exec_bytes)))
+    def __call__(self):
+        self.err = self.vm.exec(self.exec_bytes)
 
-    def __getattr__(self, func_name):
-        return lambda *args: self.vm.exec_sub(self.exec_bytes, self.funcs[func_name], *args)
+    def __getattr__(self, name):
+        if name not in self.func_names:
+            return super(JamProgram, self).__getattr__(name)
+        func = self.err[self.func_names.index(name)]
+        return lambda *args: self.vm.exec_sub(self.exec_bytes, func, *args)
 
 if __name__ == "__main__":
     import argparse
@@ -376,17 +375,14 @@ if __name__ == "__main__":
                         help='compile with debug information')
     parser.add_argument('--jam', action='store_true',
                         help='source is jam')
+    parser.add_argument('--execution-time', action='store_true',
+                        help='print time it takes to execute')
     args = parser.parse_args()
 
     minip_jam = open(args.compiler_jam or 'minip.jam').read()
     source = open(args.source) if args.source else sys.stdin
     is_source_jam = args.jam or (args.source and args.source[-4:].lower()==".jam")
     compile_only = args.compile_only or args.output
-
-    start_time = time.time()
-    def done():
-        print("Done in {} seconds".format(time.time()-start_time))
-        exit(0)
 
     if is_source_jam:
         # no compilation needed, just read in and skip to execution!
@@ -396,9 +392,9 @@ if __name__ == "__main__":
             out_file = args.output and open(args.output, "wt")
         else:
             out_file = io.StringIO()
-        compiler = JamProgram(minip_jam, stdout=out_file, stdin=source)
+        compiler = JamProgram(minip_jam, ['compile'], stdout=out_file, stdin=source)
         try:
-            compiler(['compile'])
+            compiler()
             compiler.compile(T if args.debug else F)
         except VMError as vm_error:
             sys.stderr.write(str(vm_error))
@@ -408,14 +404,15 @@ if __name__ == "__main__":
             sys.stderr.write("Compiler error on line {}".format(compiler.err_line_trace()))
             exit(1)
         if compile_only:
-            done()
+            exit(0)
         code = out_file.getvalue()
 
     prog = JamProgram(code)
     try:
+        start_time = time.time()
         prog()
+        if args.execution_time:
+            print("Executed in {} seconds".format(time.time()-start_time))
     except Exception as e:
         sys.stderr.write("Runtime error on line {}".format(prog.err_line_trace()))
         exit(1)
-
-    done()
