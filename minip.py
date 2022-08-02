@@ -1,7 +1,8 @@
 #!/usr/local/bin/python3
 
 # TODO:
-# - cleanup local/global mess here and in compiler
+# - separate return from natives again
+# - rename native => operation
 # - use intarray instead of byte array to avoid unp
 # - vsc syntax highlighting
 # - vsc preview
@@ -157,13 +158,13 @@ class VM(object):
             os.pop()
             return ip
         def _eq(exec_bytes, ip):
-            os[-1] = -1 if os[-2] == os.pop() else 0
+            os[-1] = T if os[-2] == os.pop() else F
             return ip
         def _lt(exec_bytes, ip):
-            os[-1] = -1 if os[-2]  < os.pop() else 0
+            os[-1] = T if os[-2]  < os.pop() else F
             return ip
         def _gt(exec_bytes, ip):
-            os[-1] = -1 if os[-2]  > os.pop() else 0
+            os[-1] = T if os[-2]  > os.pop() else F
             return ip
         def _and(exec_bytes, ip):
             os[-1] = os[-2] & os.pop()
