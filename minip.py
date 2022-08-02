@@ -28,8 +28,7 @@ class VMError(Exception):
 class VM(object):
     def __init__(self, stdout=None, stdin=None):
         self.operand_stack = []
-        self.var_stack =  [None] * 256 * 50
-        self.global_vars = [None] * 1024
+        self.var_stack = [[None]*1024] + [[None]*256 for _ in range(49)]
         self.frame_stack = [-1]
         self.err_stack = []
         self.start_time = time.time()
@@ -69,7 +68,7 @@ class VM(object):
                 ip = self.ops[exec_bytes[ip]](exec_bytes, ip+1)
         finally:
             self.frame_stack[-1] = ip
-        return self.global_vars[0]
+        return self.var_stack[0][0]
 
     @staticmethod
     def compile_exec_bytes(jam):
@@ -135,8 +134,8 @@ class VM(object):
         
     def _init_ops(self):
         os = self.operand_stack
-        gv = self.global_vars
         vs = self.var_stack
+        gv = vs[0]
         fs = self.frame_stack
         def _nop(exec_bytes, ip):
             return ip
@@ -207,17 +206,17 @@ class VM(object):
             fs.append(-1)
             return os.pop()
         def _args(exec_bytes, ip):
-            vsi = (len(fs)-2) * 256
+            vsi = len(fs) - 1
             for i in range(exec_bytes[ip])[::-1]:
-                vs[vsi+i] = os.pop()
+                vs[vsi][i] = os.pop()
             return ip + 1
         def _setl(exec_bytes, ip):
-            vsi = (len(fs)-2) * 256
-            vs[vsi+exec_bytes[ip]] = os.pop()
+            vsi = len(fs) - 1
+            vs[vsi][exec_bytes[ip]] = os.pop()
             return ip + 2
         def _getl(exec_bytes, ip):
-            vsi = (len(fs)-2) * 256
-            os.append(vs[vsi+exec_bytes[ip]])
+            vsi = len(fs) - 1
+            os.append(vs[vsi][exec_bytes[ip]])
             return ip + 2
         def _setg(exec_bytes, ip):
             gv[self.unpack_uint(exec_bytes, ip)] = os.pop()
