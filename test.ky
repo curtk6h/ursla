@@ -1,23 +1,23 @@
 {
   @ Stdlib | Natives
-  :ERR
+  :ERR @ required!
   :NIL
   :T:1=1
   :F:~T
-  :is{ \80 }
-  :weak{ \81 }
-  :time{ \82 }
-  :in{ \83 }
-  :out{ \84 }
-  :pack{ \85 }
-  :unpack{ \86 }
-  :clamp{ \87 }
-  :data{ \88 }
-  :array{ \89 }
-  :len{ \8a }
-  :get{ \8b }
-  :set{ \8c }
-  :copy{ \8d }
+  :is{ $\80 }
+  :weak{ $\81 }
+  :time{ $\82 }
+  :in{ $\83 }
+  :out{ $\84 }
+  :pack{ $\85 }
+  :unpack{ $\86 }
+  :clamp{ $\87 }
+  :data{ $\88 }
+  :array{ $\89 }
+  :len{ $\8a }
+  :get{ $\8b }
+  :set{ $\8c }
+  :copy{ $\8d }
   :expose(funcs){
     :ERR:funcs
     $funcs
