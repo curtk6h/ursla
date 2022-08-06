@@ -73,7 +73,7 @@ class VM(object):
         return self.var_stack[0][0]
 
     @staticmethod
-    def compile_exec_bytes(jam, tune=True):
+    def compile_exec_bytes(jam):
         line_ips = [0]
         exec_bytes = bytearray(len(jam))
         ip = 0
@@ -108,11 +108,6 @@ class VM(object):
         funcs = {}
 
         # TODO:
-        # - increment, decrement local variable (by 1)
-        # - fetch two locals (any simple binary operation)
-        # - fetch local + integer
-        # - integer + fetch local
-        # - get/set local 1, 2, 3
         # - get(x,0)
         # - set(x,0,a)
         # also, add option to print patterns found
@@ -133,12 +128,26 @@ class VM(object):
                 exec_bytes[op_ips[0]] = 0x90
                 exec_bytes[op_ips[0]+1] = (func_addr>>8)&0xFF
                 exec_bytes[op_ips[0]+2] = (func_addr)&0xFF
+
+        def incl(exec_bytes, op_ips):
+            if exec_bytes[op_ips[0]+1] == exec_bytes[op_ips[0]+10]:
+                exec_bytes[op_ips[0]] = 0x91
+
+        def decl(exec_bytes, op_ips):
+            if exec_bytes[op_ips[0]+1] == exec_bytes[op_ips[0]+10]:
+                exec_bytes[op_ips[0]] = 0x92
+
+        def getl2(exec_bytes, op_ips):
+            exec_bytes[op_ips[0]] = 0x93
             
         patterns = [
             ('rG', mark_func),
             ('g{', global_func_call),
+            ('#i+:', incl),
+            ('#i-:', decl),
+            ('##', getl2)
         ]
-        op_ips = [-1, -1, -1]
+        op_ips = [-1, -1, -1, -1]
         ip = 0
         while ip < len(exec_bytes):
             op_ips = op_ips[1:] + [ip]
@@ -340,6 +349,16 @@ class VM(object):
             fs[-1] = ip + 5
             fs.append(-1)
             return self.unpack_uint(exec_bytes, ip)
+        def _incl(exec_bytes, ip):
+            vs[len(fs)-1][exec_bytes[ip]] += self.unpack_int(exec_bytes, ip+3)
+            return ip + 11
+        def _decl(exec_bytes, ip):
+            vs[len(fs)-1][exec_bytes[ip]] -= self.unpack_int(exec_bytes, ip+3)
+            return ip + 11
+        def _getl2(exec_bytes, ip):
+            os.append(vs[len(fs)-1][exec_bytes[ip]])
+            os.append(vs[len(fs)-1][exec_bytes[ip+3]])
+            return ip + 5
         self.ops = [_nop] * 256
         self.ops[ord('i')] = _load_int
         self.ops[ord('s')] = _load_str
@@ -386,6 +405,9 @@ class VM(object):
         self.ops[0x8c] = _set
         self.ops[0x8d] = _copy
         self.ops[0x90] = _ijsr
+        self.ops[0x91] = _incl
+        self.ops[0x92] = _decl
+        self.ops[0x93] = _getl2
 
 class JamProgram(object):
     def __init__(self, jam, func_names=[], tune=True, **vm_options):
@@ -456,8 +478,8 @@ if __name__ == "__main__":
         if compile_only:
             exit(0)
         code = out_file.getvalue()
-
-    prog = JamProgram(code, tune=not args.disable_tuning)
+    
+    prog = JamProgram(code, tune=(not args.disable_tuning))
     try:
         start_time = time.time()
         prog()
