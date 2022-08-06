@@ -113,12 +113,14 @@ class VM(object):
         # also, add option to print patterns found
         
         def mark_func(exec_bytes, op_ips):
-            funcs[VM.unpack_uint(exec_bytes, op_ips[1]+1)] = VM.unpack_uint(exec_bytes, op_ips[0]+1)
+            funcs[VM.unpack_uint(exec_bytes, op_ips[1]+1)] = \
+                VM.unpack_uint(exec_bytes, op_ips[0]+1)
+            return True
 
         def global_func_call(exec_bytes, op_ips):
             func_addr = funcs.get(VM.unpack_uint(exec_bytes, op_ips[0]+1))
             if func_addr is None:
-                pass  # indirect call
+                return False  # indirect call, leave as is
             elif exec_bytes[func_addr] >= 0x80:
                 # native
                 exec_bytes[op_ips[0]] = exec_bytes[func_addr]
@@ -128,29 +130,37 @@ class VM(object):
                 exec_bytes[op_ips[0]] = 0x90
                 exec_bytes[op_ips[0]+1] = (func_addr>>8)&0xFF
                 exec_bytes[op_ips[0]+2] = (func_addr)&0xFF
+            return True
 
         def incl(exec_bytes, op_ips):
             if exec_bytes[op_ips[0]+1] == exec_bytes[op_ips[0]+10]:
                 exec_bytes[op_ips[0]] = 0x91
+            return True
 
         def decl(exec_bytes, op_ips):
             if exec_bytes[op_ips[0]+1] == exec_bytes[op_ips[0]+10]:
                 exec_bytes[op_ips[0]] = 0x92
+            return True
 
         def getl2(exec_bytes, op_ips):
             exec_bytes[op_ips[0]] = 0x93
+            return True
             
         patterns = [
             ('rG', mark_func),
             ('g{', global_func_call),
             ('#i+:', incl),
             ('#i-:', decl),
-            ('##', getl2)
+            ('##', getl2),
+            #('#i{', getli)
         ]
-        op_ips = [-1, -1, -1, -1]
+        max_pattern_length = max(len(pattern) for pattern in patterns)
+        op_ips = []
         ip = 0
         while ip < len(exec_bytes):
-            op_ips = op_ips[1:] + [ip]
+            op_ips.append(ip)
+            if len(op_ips) > max_pattern_length:
+                op_ips.pop(0)
             op = exec_bytes[ip]
             ip += 1
             if op >= 0x80 or op in b':#p':
@@ -162,7 +172,8 @@ class VM(object):
             op_window = ''.join(chr(exec_bytes[x] if x >= 0 else 0x00) for x in op_ips)
             for pattern, func in patterns:
                 if op_window[:len(pattern)] == pattern:
-                    func(exec_bytes, op_ips)
+                    if func(exec_bytes, op_ips):
+                        op_ips = op_ips[len(pattern):]
 
         return exec_bytes
 
