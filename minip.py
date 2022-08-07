@@ -106,12 +106,7 @@ class VM(object):
     @staticmethod
     def tune_exec_bytes(exec_bytes):
         funcs = {}
-
-        # TODO:
-        # - get(x,0)
-        # - set(x,0,a)
-        # also, add option to print patterns found
-        
+                
         def mark_func(exec_bytes, op_ips):
             funcs[VM.unpack_uint(exec_bytes, op_ips[1]+1)] = \
                 VM.unpack_uint(exec_bytes, op_ips[0]+1)
@@ -145,16 +140,23 @@ class VM(object):
         def getl2(exec_bytes, op_ips):
             exec_bytes[op_ips[0]] = 0x93
             return True
+
+        def getli(exec_bytes, op_ips):
+            func_addr = funcs.get(VM.unpack_uint(exec_bytes, op_ips[1]+1))
+            if func_addr is None or exec_bytes[func_addr] != 0x8b:
+                return False
+            exec_bytes[op_ips[0]] = 0x94
+            return True
             
         patterns = [
             ('rG', mark_func),
+            ('ig{', getli),
             ('g{', global_func_call),
             ('#i+:', incl),
             ('#i-:', decl),
-            ('##', getl2),
-            #('#i{', getli)
+            ('##', getl2)
         ]
-        max_pattern_length = max(len(pattern) for pattern in patterns)
+        max_pattern_length = max(len(pattern) for pattern, _ in patterns)
         op_ips = []
         ip = 0
         while ip < len(exec_bytes):
@@ -370,6 +372,9 @@ class VM(object):
             os.append(vs[len(fs)-1][exec_bytes[ip]])
             os.append(vs[len(fs)-1][exec_bytes[ip+3]])
             return ip + 5
+        def _getli(exec_bytes, ip):
+            os[-1] = os[-1][self.unpack_int(exec_bytes, ip)]
+            return ip + 10
         self.ops = [_nop] * 256
         self.ops[ord('i')] = _load_int
         self.ops[ord('s')] = _load_str
@@ -419,6 +424,7 @@ class VM(object):
         self.ops[0x91] = _incl
         self.ops[0x92] = _decl
         self.ops[0x93] = _getl2
+        self.ops[0x94] = _getli
 
 class JamProgram(object):
     def __init__(self, jam, func_names=[], tune=True, **vm_options):
@@ -475,7 +481,7 @@ if __name__ == "__main__":
             out_file = args.output and open(args.output, "wt")
         else:
             out_file = io.StringIO()
-        compiler = JamProgram(minip_jam, ['compile'], stdout=out_file, stdin=source)
+        compiler = JamProgram(minip_jam, ['compile'], tune=False, stdout=out_file, stdin=source)
         try:
             compiler()
             compiler.compile(T if args.debug else F)
