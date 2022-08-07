@@ -1,14 +1,14 @@
 #!/usr/local/bin/python3
 
 # TODO:
-# - finish tuning
-# - use intarray instead of byte array to avoid unp
 # - rename native => operation
 # - clamp => min, max :)
 # - vsc syntax highlighting
 # - vsc preview
 
-import sys, time, io
+import sys, time, io, array
+
+assert sys.byteorder == 'little' # sorry ;)
 
 def int16(value):
     return ((value&0xFFFF)^0x8000) - 0x8000
@@ -22,7 +22,7 @@ def ffb(x):
     # NOTE: this only works for values where 1 bit is set
     return _BIT_POS[(x&-x)%37]
 
-T = -1; F = 0
+NIL = None; T = -1; F = 0
 
 class VMError(Exception):
     pass
@@ -30,7 +30,7 @@ class VMError(Exception):
 class VM(object):
     def __init__(self, stdout=None, stdin=None):
         self.operand_stack = []
-        self.var_stack = [[None]*1024] + [[None]*256 for _ in range(49)]
+        self.var_stack = [[NIL]*1024] + [[NIL]*256 for _ in range(49)]
         self.frame_stack = [-1]
         self.err_stack = []
         self.start_time = time.time()
@@ -51,31 +51,22 @@ class VM(object):
         return " -> ".join(str(VM.err_line_num(line_ips, ip))
                            for ip in self.frame_stack)
 
-    def exec_sub(self, exec_bytes, ip, *args):
+    def exec(self, exec_bytes, ip=0, *args):
         self.operand_stack.extend(args)
-        fs = self.frame_stack
-        fs_end = len(fs)
-        fs.append(ip)
+        self.frame_stack.append(ip)
         try:
-            while len(fs) != fs_end:
+            while True:
                 ip = self.ops[exec_bytes[ip]](exec_bytes, ip+1)
+        except IndexError:
+            pass
         finally:
-            fs[-1] = ip
+            self.frame_stack.append(ip)
         return self.operand_stack.pop()
-
-    def exec(self, exec_bytes, ip=0):
-        ip_end = len(exec_bytes)
-        try:
-            while ip != ip_end:
-                ip = self.ops[exec_bytes[ip]](exec_bytes, ip+1)
-        finally:
-            self.frame_stack[-1] = ip
-        return self.var_stack[0][0]
 
     @staticmethod
     def compile_exec_bytes(jam):
         line_ips = [0]
-        exec_bytes = bytearray(len(jam))
+        exec_bytes = array.array('H', (0 for _ in range(len(jam)+6)))
         ip = 0
         while ip < len(jam):
             op = jam[ip]
@@ -83,8 +74,7 @@ class VM(object):
             ip += 1
             if op in 'gGisar?jt':
                 x = int(jam[ip:ip+4], 16)
-                exec_bytes[ip] = (x>>8)&0xFF
-                exec_bytes[ip+1] = x&0xFF
+                exec_bytes[ip] = uint16(x)
                 ip += 4
                 if op == 's':
                     x += ip
@@ -101,6 +91,8 @@ class VM(object):
                 line_ips.append(ip)
             else:
                 pass # no params
+        exec_bytes[ip] = ord('g')    # push zeroth global aka ERR
+        exec_bytes[ip+5] = ord('$')  # return (TODO: don't do this)
         return exec_bytes, line_ips
 
     @staticmethod
@@ -108,12 +100,12 @@ class VM(object):
         funcs = {}
                 
         def mark_func(exec_bytes, op_ips):
-            funcs[VM.unpack_uint(exec_bytes, op_ips[1]+1)] = \
-                VM.unpack_uint(exec_bytes, op_ips[0]+1)
+            funcs[exec_bytes[op_ips[1]+1]] = \
+                exec_bytes[op_ips[0]+1]
             return True
 
         def global_func_call(exec_bytes, op_ips):
-            func_addr = funcs.get(VM.unpack_uint(exec_bytes, op_ips[0]+1))
+            func_addr = funcs.get(exec_bytes[op_ips[0]+1])
             if func_addr is None:
                 return False  # indirect call, leave as is
             elif exec_bytes[func_addr] >= 0x80:
@@ -123,8 +115,7 @@ class VM(object):
             else:
                 # direct call
                 exec_bytes[op_ips[0]] = 0x90
-                exec_bytes[op_ips[0]+1] = (func_addr>>8)&0xFF
-                exec_bytes[op_ips[0]+2] = (func_addr)&0xFF
+                exec_bytes[op_ips[0]+1] = func_addr
             return True
 
         def incl(exec_bytes, op_ips):
@@ -142,7 +133,7 @@ class VM(object):
             return True
 
         def getli(exec_bytes, op_ips):
-            func_addr = funcs.get(VM.unpack_uint(exec_bytes, op_ips[1]+1))
+            func_addr = funcs.get(exec_bytes[op_ips[1]+1])
             if func_addr is None or exec_bytes[func_addr] != 0x8b:
                 return False
             exec_bytes[op_ips[0]] = 0x94
@@ -169,7 +160,7 @@ class VM(object):
                 ip += 2
             elif op in b'gGisar?jt':
                 if op == b's':
-                    ip += VM.unpack_uint(exec_bytes, ip)
+                    ip += exec_bytes[ip]
                 ip += 4
             op_window = ''.join(chr(exec_bytes[x] if x >= 0 else 0x00) for x in op_ips)
             for pattern, func in patterns:
@@ -185,18 +176,10 @@ class VM(object):
             return value.decode("ascii")
         elif isinstance(value, list):
             return ''.join(map(str, value))
-        elif value is None:
+        elif value is NIL:
             return ''
         else:
             return str(value)
-    
-    @staticmethod
-    def unpack_uint(exec_bytes, ip):
-        return (exec_bytes[ip]<<8) | exec_bytes[ip+1]
-    
-    @staticmethod
-    def unpack_int(exec_bytes, ip):
-        return int16(VM.unpack_uint(exec_bytes, ip))
         
     def _init_ops(self):
         os = self.operand_stack
@@ -206,15 +189,15 @@ class VM(object):
         def _nop(exec_bytes, ip):
             return ip
         def _load_int(exec_bytes, ip):
-            os.append(self.unpack_int(exec_bytes, ip))
+            os.append(int16(exec_bytes[ip]))
             return ip + 4
         def _load_str(exec_bytes, ip):
-            n = self.unpack_uint(exec_bytes, ip)
+            n = exec_bytes[ip]
             ip += 4
-            os.append(exec_bytes[ip:ip+n])
+            os.append(bytearray(x for x in exec_bytes[ip:ip+n]))
             return ip + n
         def _load_array(exec_bytes, ip):
-            n = self.unpack_uint(exec_bytes, ip)
+            n = exec_bytes[ip]
             a = os[-n:]
             del os[-n:]
             os.append(a)
@@ -262,10 +245,10 @@ class VM(object):
             os[-1] = os[-2] % os.pop()
             return ip
         def _jmp(exec_bytes, ip):
-            return self.unpack_uint(exec_bytes, ip)
+            return exec_bytes[ip]
         def _jz(exec_bytes, ip):
             if os.pop() == 0:
-                return self.unpack_uint(exec_bytes, ip)
+                return exec_bytes[ip]
             return ip + 4
         def _jsr(exec_bytes, ip):
             fs[-1] = ip
@@ -283,10 +266,10 @@ class VM(object):
             os.append(vs[len(fs)-1][exec_bytes[ip]])
             return ip + 2
         def _setg(exec_bytes, ip):
-            gv[self.unpack_uint(exec_bytes, ip)] = os.pop()
+            gv[exec_bytes[ip]] = os.pop()
             return ip + 4
         def _getg(exec_bytes, ip):
-            os.append(gv[self.unpack_uint(exec_bytes, ip)])
+            os.append(gv[exec_bytes[ip]])
             return ip + 4
         def _ret(exec_bytes, ip):
             fs.pop()
@@ -294,7 +277,7 @@ class VM(object):
         def _try(exec_bytes, ip):
             self.err_stack.append((
                 len(self.frame_stack),
-                self.unpack_uint(exec_bytes, ip),
+                exec_bytes[ip],
                 len(os)))
             return ip + 4
         def _end_try(exec_bytes, ip):
@@ -315,7 +298,7 @@ class VM(object):
         def _weak(exec_bytes, ip):
             return ip + 1
         def _time(exec_bytes, ip):
-            os.append(int(round((time.time()-self.start_time)*1000)))
+            os.append(uint16(round((time.time()-self.start_time)*1000)))
             return ip + 1
         def _in(exec_bytes, ip):
             os.append(bytearray(self.stdin.read(), 'ascii'))
@@ -339,7 +322,7 @@ class VM(object):
             os[-1] = bytearray(os[-1])
             return ip + 1
         def _array(exec_bytes, ip):
-            os.append([None]*uint16(os.pop()))
+            os.append([NIL]*uint16(os.pop()))
             return ip + 1
         def _len(exec_bytes, ip):
             os[-1] = len(os[-1])
@@ -361,19 +344,19 @@ class VM(object):
         def _ijsr(exec_bytes, ip):
             fs[-1] = ip + 5
             fs.append(-1)
-            return self.unpack_uint(exec_bytes, ip)
+            return exec_bytes[ip]
         def _incl(exec_bytes, ip):
-            vs[len(fs)-1][exec_bytes[ip]] += self.unpack_int(exec_bytes, ip+3)
+            vs[len(fs)-1][exec_bytes[ip]] += int16(exec_bytes[ip+3])
             return ip + 11
         def _decl(exec_bytes, ip):
-            vs[len(fs)-1][exec_bytes[ip]] -= self.unpack_int(exec_bytes, ip+3)
+            vs[len(fs)-1][exec_bytes[ip]] -= int16(exec_bytes[ip+3])
             return ip + 11
         def _getl2(exec_bytes, ip):
             os.append(vs[len(fs)-1][exec_bytes[ip]])
             os.append(vs[len(fs)-1][exec_bytes[ip+3]])
             return ip + 5
         def _getli(exec_bytes, ip):
-            os[-1] = os[-1][self.unpack_int(exec_bytes, ip)]
+            os[-1] = os[-1][int16(exec_bytes[ip])]
             return ip + 10
         self.ops = [_nop] * 256
         self.ops[ord('i')] = _load_int
@@ -438,6 +421,18 @@ class JamProgram(object):
     def err_line_trace(self):
         return self.vm.err_line_trace(self.line_ips)
 
+    def from_py(self, value):
+        if value is None:
+            return NIL
+        elif isinstance(value, str):
+            return value.decode("ascii")
+        elif isinstance(value, int):
+            return int16(value)
+        elif isinstance(value, bool):
+            return T if value else F
+        else:
+            return value
+
     def __call__(self):
         self.err = self.vm.exec(self.exec_bytes)
 
@@ -445,7 +440,7 @@ class JamProgram(object):
         if name not in self.func_names:
             return super(JamProgram, self).__getattr__(name)
         func = self.err[self.func_names.index(name)]
-        return lambda *args: self.vm.exec_sub(self.exec_bytes, func, *args)
+        return lambda *args: self.vm.exec(self.exec_bytes, func, *(self.from_py(arg) for arg in args))
 
 if __name__ == "__main__":
     import argparse
@@ -481,10 +476,10 @@ if __name__ == "__main__":
             out_file = args.output and open(args.output, "wt")
         else:
             out_file = io.StringIO()
-        compiler = JamProgram(minip_jam, ['compile'], tune=False, stdout=out_file, stdin=source)
+        compiler = JamProgram(minip_jam, ['compile'], stdout=out_file, stdin=source)
         try:
             compiler()
-            compiler.compile(T if args.debug else F)
+            compiler.compile(args.debug)
         except VMError as vm_error:
             sys.stderr.write(str(vm_error))
             exit(1)
