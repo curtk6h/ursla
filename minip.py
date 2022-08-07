@@ -24,21 +24,6 @@ def int16(value):
 def uint16(value):
     return value & 0xFFFF
 
-def to_vm_object(value):
-    # Note that reciprocal function does not exist because types do not map 1:1
-    if value is None:
-        return NIL
-    elif isinstance(value, str):
-        return value.decode("ascii")
-    elif isinstance(value, int):
-        return int16(value)
-    elif isinstance(value, bool):
-        return T if value else F
-    elif isinstance(value, list):
-        return [to_vm_object(x) for x in value]
-    else:
-        return value
-
 class VMError(Exception):
     pass
 
@@ -62,7 +47,7 @@ class VM(object):
         def wrap(ip):
             def exec(*args):
                 try:
-                    return [wrap(f) for f in vm.exec(exec_bytes, ip, *(to_vm_object(arg) for arg in args))]
+                    return [wrap(f) for f in vm.exec(exec_bytes, ip, *(VM.to_vm_object(arg) for arg in args))]
                 except Exception as e:
                     e.err_line_trace = vm.err_line_trace(line_ips)
                     raise
@@ -204,11 +189,27 @@ class VM(object):
         return exec_bytes
 
     @staticmethod
-    def primitive_to_str(value):
+    def to_vm_object(value):
+        # Note that reciprocal function does not exist because types do not map 1:1
+        if value is None:
+            return NIL
+        elif isinstance(value, str):
+            return value.decode("ascii")
+        elif isinstance(value, int):
+            return int16(value)
+        elif isinstance(value, bool):
+            return T if value else F
+        elif isinstance(value, list):
+            return [VM.to_vm_object(x) for x in value]
+        else:
+            return value
+
+    @staticmethod
+    def vm_object_to_str(value):
         if isinstance(value, bytearray):
             return value.decode("ascii")
         elif isinstance(value, list):
-            return ''.join(map(str, value))
+            return ''.join(VM.vm_object_to_str(value))
         elif value is NIL:
             return ''
         else:
@@ -319,7 +320,7 @@ class VM(object):
         def _throw(exec_bytes, ip):
             gv[0] = os.pop()
             if not self.err_stack:
-                raise VMError(self.primitive_to_str(gv[0]))
+                raise VMError(VM.vm_object_to_str(gv[0]))
             frame_n, ip, operand_n = self.err_stack.pop()
             del fs[frame_n:]
             del os[operand_n:]
@@ -337,7 +338,7 @@ class VM(object):
             os.append(bytearray(self.stdin.read(), 'ascii'))
             return ip + 1
         def _out(exec_bytes, ip):
-            self.stdout.write(self.primitive_to_str(os[-1]))
+            self.stdout.write(VM.vm_object_to_str(os[-1]))
             return ip + 1
         def _pack(exec_bytes, ip):
             value, mask = os.pop(), os.pop()
