@@ -54,10 +54,14 @@ class VM(object):
     def exec(self, exec_bytes, ip=0, *args):
         self.operand_stack.extend(args)
         self.frame_stack.append(ip)
+        ops = self.ops
         try:
             while True:
-                ip = self.ops[exec_bytes[ip]](exec_bytes, ip+1)
+                ip = ops[exec_bytes[ip]](exec_bytes, ip+1)
         except IndexError:
+            # this is a super hacky way to assume proper exit, 
+            # however, it allows for no conditional in main loop and
+            # no extra logic in any operation
             pass
         finally:
             self.frame_stack.append(ip)
