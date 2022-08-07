@@ -69,6 +69,10 @@ class VM(object):
             return exec
         return wrap(0)
 
+    def err_line_trace(self, line_ips):
+        return " -> ".join(str(VM.err_line_num(line_ips, ip))
+                           for ip in self.frame_stack[::-1])
+
     @staticmethod
     def err_line_num(line_ips, ip):
         line_num = 0
@@ -77,10 +81,6 @@ class VM(object):
                 break
             line_num = next_line_index
         return line_num + 1
-
-    def err_line_trace(self, line_ips):
-        return " -> ".join(str(VM.err_line_num(line_ips, ip))
-                           for ip in self.frame_stack[::-1])
 
     def exec(self, exec_bytes, ip, *args):
         self.operand_stack.extend(args)
