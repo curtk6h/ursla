@@ -22,10 +22,6 @@
   :get{ $\8b }
   :set{ $\8c }
   :copy{ $\8d }
-  :expose(funcs){
-    :ERR:funcs
-    $funcs
-  }
   
   @ Stdlib | Misc Constants
   :EMPTY_DATA:""
@@ -577,6 +573,24 @@
     }^
     $i
   }
+  :Compiler_c_args(comp,code,i){
+    :lv:Compiler_lv(comp)
+    :n:0
+    ?get(code,i)=PAREN_L{
+      :i:i+1
+      ?~(get(code,i)=PAREN_R){
+        :i:Compiler_parse_symbol(comp,code,i) 
+        Vector_append(lv,r1)
+        ?get(code,i)=COMMA{
+          :i:i+1
+        }
+        :n:n+1
+      }^
+      :i:i+1
+      Compiler_append_op_w_byte(comp,ARGS,n)
+    }
+    $i
+  }
   :Compiler_c_statement(comp,code,i){
     :c:get(code,i)
     ?c=QUESTION_MARK{
@@ -656,20 +670,7 @@
           Compiler_append_op_w_addr(comp,JUMP,0)
           :fv:Vector(+ff)
           Vector_append(vs,fv)
-          :n:0
-          ?get(code,i)=PAREN_L{
-            :i:i+1
-            ?~(get(code,i)=PAREN_R){
-              :i:Compiler_parse_symbol(comp,code,i) 
-              Vector_append(fv,r1)
-              ?get(code,i)=COMMA{
-                :i:i+1
-              }
-              :n:n+1
-            }^
-            :i:i+1
-            Compiler_append_op_w_byte(comp,ARGS,n)
-          }
+          :i:Compiler_c_args(comp,code,i)
           :i:Compiler_c_code_block(comp,code,i)
           Vector_pop(vs)
           Compiler_encode_short(comp,top+1,Compiler_jam_idx(comp))
@@ -714,7 +715,9 @@
     $i+1
   }
   :Compiler_compile(comp,code){
-    Compiler_c_code_block(comp,code,0)
+    :i:0
+    :i:Compiler_c_args(comp,code,i)
+    :i:Compiler_c_code_block(comp,code,i)
     $comp
   }
 
@@ -737,5 +740,6 @@
   :compile(debug){
     $out(Compiler_jam_for_output(Compiler_compile(Compiler(debug),in())))
   }
-  expose(,compile)
+
+  $,compile
 }

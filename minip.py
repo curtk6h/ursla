@@ -10,12 +10,6 @@ import sys, time, io, array
 
 assert sys.byteorder == 'little' # sorry ;)
 
-def int16(value):
-    return ((value&0xFFFF)^0x8000) - 0x8000
-
-def uint16(value):
-    return value & 0xFFFF
-
 _BIT_POS = [0, 0, 1, 26, 2, 23, 27, 0, 3, 16, 24, 30, 28, 11, 0, 13, 4, 7, 17, 0, 25, 22, 31, 15, 29, 10, 12, 6, 0, 21, 14, 9, 5, 20, 8, 19, 18]
 
 def ffb(x):
@@ -23,6 +17,27 @@ def ffb(x):
     return _BIT_POS[(x&-x)%37]
 
 NIL = None; T = -1; F = 0
+
+def int16(value):
+    return ((value&0xFFFF)^0x8000) - 0x8000
+
+def uint16(value):
+    return value & 0xFFFF
+
+def to_vm_object(value):
+    # Note that reciprocal function does not exist because types do not map 1:1
+    if value is None:
+        return NIL
+    elif isinstance(value, str):
+        return value.decode("ascii")
+    elif isinstance(value, int):
+        return int16(value)
+    elif isinstance(value, bool):
+        return T if value else F
+    elif isinstance(value, list):
+        return [to_vm_object(x) for x in value]
+    else:
+        return value
 
 class VMError(Exception):
     pass
@@ -39,6 +54,22 @@ class VM(object):
         self._init_ops()
 
     @staticmethod
+    def create_func(jam, tune=True, **vm_options):
+        vm = VM(**vm_options)
+        exec_bytes, line_ips = VM.compile_exec_bytes(jam)
+        if tune:
+            exec_bytes = VM.tune_exec_bytes(exec_bytes)
+        def wrap(ip):
+            def exec(*args):
+                try:
+                    return [wrap(f) for f in vm.exec(exec_bytes, ip, *(to_vm_object(arg) for arg in args))]
+                except Exception as e:
+                    e.err_line_trace = vm.err_line_trace(line_ips)
+                    raise
+            return exec
+        return wrap(0)
+
+    @staticmethod
     def err_line_num(line_ips, ip):
         line_num = 0
         for next_line_index, next_ip in enumerate(line_ips):
@@ -49,9 +80,9 @@ class VM(object):
 
     def err_line_trace(self, line_ips):
         return " -> ".join(str(VM.err_line_num(line_ips, ip))
-                           for ip in self.frame_stack)
+                           for ip in self.frame_stack[::-1])
 
-    def exec(self, exec_bytes, ip=0, *args):
+    def exec(self, exec_bytes, ip, *args):
         self.operand_stack.extend(args)
         self.frame_stack.append(ip)
         ops = self.ops
@@ -59,8 +90,8 @@ class VM(object):
             while True:
                 ip = ops[exec_bytes[ip]](exec_bytes, ip+1)
         except IndexError:
-            # this is a super hacky way to assume proper exit, 
-            # however, it allows for no conditional in main loop and
+            # This is a super hacky way to assume proper exit, 
+            # however, it allows for no exit test in main loop and
             # no extra logic in any operation
             pass
         finally:
@@ -70,7 +101,7 @@ class VM(object):
     @staticmethod
     def compile_exec_bytes(jam):
         line_ips = [0]
-        exec_bytes = array.array('H', (0 for _ in range(len(jam)+6)))
+        exec_bytes = array.array('H', (0 for _ in range(len(jam))))
         ip = 0
         while ip < len(jam):
             op = jam[ip]
@@ -95,8 +126,6 @@ class VM(object):
                 line_ips.append(ip)
             else:
                 pass # no params
-        exec_bytes[ip] = ord('g')    # push zeroth global aka ERR
-        exec_bytes[ip+5] = ord('$')  # return (TODO: don't do this)
         return exec_bytes, line_ips
 
     @staticmethod
@@ -413,39 +442,6 @@ class VM(object):
         self.ops[0x93] = _getl2
         self.ops[0x94] = _getli
 
-class JamProgram(object):
-    def __init__(self, jam, func_names=[], tune=True, **vm_options):
-        self.vm = VM(**vm_options)
-        self.exec_bytes, self.line_ips = VM.compile_exec_bytes(jam)
-        self.func_names = func_names
-        self.err = None
-        if tune:
-            self.exec_bytes = VM.tune_exec_bytes(self.exec_bytes)
-
-    def err_line_trace(self):
-        return self.vm.err_line_trace(self.line_ips)
-
-    def from_py(self, value):
-        if value is None:
-            return NIL
-        elif isinstance(value, str):
-            return value.decode("ascii")
-        elif isinstance(value, int):
-            return int16(value)
-        elif isinstance(value, bool):
-            return T if value else F
-        else:
-            return value
-
-    def __call__(self):
-        self.err = self.vm.exec(self.exec_bytes)
-
-    def __getattr__(self, name):
-        if name not in self.func_names:
-            return super(JamProgram, self).__getattr__(name)
-        func = self.err[self.func_names.index(name)]
-        return lambda *args: self.vm.exec(self.exec_bytes, func, *(self.from_py(arg) for arg in args))
-
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='MiniP v0.1 | Compile and execute ky/jam scripts')
@@ -480,27 +476,28 @@ if __name__ == "__main__":
             out_file = args.output and open(args.output, "wt")
         else:
             out_file = io.StringIO()
-        compiler = JamProgram(minip_jam, ['compile'], stdout=out_file, stdin=source)
+        compiler = VM.create_func(minip_jam, stdout=out_file, stdin=source)
         try:
-            compiler()
-            compiler.compile(args.debug)
+            compile, = compiler()
+            compile(args.debug)
         except VMError as vm_error:
             sys.stderr.write(str(vm_error))
             exit(1)
         except Exception as e:
             import traceback; traceback.print_exc()
-            sys.stderr.write("Compiler error on line {}".format(compiler.err_line_trace()))
+            sys.stderr.write("Compiler error on line {}".format(e.err_line_trace or '?'))
             exit(1)
         if compile_only:
             exit(0)
         code = out_file.getvalue()
-    
-    prog = JamProgram(code, tune=(not args.disable_tuning))
+
+    run_program = VM.create_func(code, tune=(not args.disable_tuning))
     try:
         start_time = time.time()
-        prog()
+        run_program()
         if args.execution_time:
             print("Executed in {} seconds".format(time.time()-start_time))
     except Exception as e:
-        sys.stderr.write("Runtime error on line {}".format(prog.err_line_trace()))
+        import traceback; traceback.print_exc()
+        sys.stderr.write("Runtime error on line {}".format(e.err_line_trace or '?'))
         exit(1)

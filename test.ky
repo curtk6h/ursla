@@ -18,10 +18,6 @@
   :get{ $\8b }
   :set{ $\8c }
   :copy{ $\8d }
-  :expose(funcs){
-    :ERR:funcs
-    $funcs
-  }
   @ End of Stdlib
   
   :EMPTY_DATA:""
@@ -356,4 +352,7 @@
   
   out(NL)
   out("123456789helloworlddynamic <- EXPECTED")
+  out(NL)
+
+  $EMPTY_ARRAY @ required
 }
