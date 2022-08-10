@@ -82,7 +82,8 @@ class VM(object):
             # it allows for no test in main loop and no extra logic
             # in any operation (ie. return)
             if not isinstance(e, IndexError):
-                e.jam_line_trace = self.err_line_trace(line_ips)
+                if line_ips is None:
+                    e.jam_line_trace = self.err_line_trace(line_ips)
                 raise
 
     @staticmethod
