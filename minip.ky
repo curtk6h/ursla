@@ -741,5 +741,5 @@
     $out(Compiler_jam_for_output(Compiler_compile(Compiler(debug),in())))
   }
 
-  $,compile
+  :ERR:,compile
 }

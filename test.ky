@@ -354,5 +354,5 @@
   out("123456789helloworlddynamic <- EXPECTED")
   out(NL)
 
-  $EMPTY_ARRAY @ required
+  :ERR:EMPTY_ARRAY @ required
 }

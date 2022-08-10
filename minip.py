@@ -1,6 +1,8 @@
 #!/usr/local/bin/python3
 
 # TODO:
+# - write ip straight to fs?
+# - cleanup tuning, simplify naming of funcs
 # - rename native => operation
 # - clamp => min, max :)
 # - vsc syntax highlighting
@@ -31,7 +33,7 @@ class VM(object):
     def __init__(self, stdout=None, stdin=None):
         self.operand_stack = []
         self.var_stack = [[NIL]*1024] + [[NIL]*256 for _ in range(49)]
-        self.frame_stack = [-1]
+        self.frame_stack = [0]
         self.err_stack = []
         self.start_time = time.time()
         self.stdout = stdout or sys.stdout
@@ -41,18 +43,12 @@ class VM(object):
     @staticmethod
     def create_func(jam, tune=True, **vm_options):
         vm = VM(**vm_options)
-        exec_bytes, line_ips = VM.compile_exec_bytes(jam)
-        if tune:
-            exec_bytes = VM.tune_exec_bytes(exec_bytes)
-        def wrap(ip):
-            def exec(*args):
-                try:
-                    return [wrap(f) for f in vm.exec(exec_bytes, ip, *(VM.to_vm_object(arg) for arg in args))]
-                except Exception as e:
-                    e.err_line_trace = vm.err_line_trace(line_ips)
-                    raise
-            return exec
-        return wrap(0)
+        exec_bytes, line_ips = VM.compile_exec_bytes(jam, tune=tune)
+        def exec_root():
+            vm.exec(exec_bytes, line_ips)
+            return [lambda *sub_args: vm.call(exec_bytes, f, sub_args, line_ips)
+                for f in vm.var_stack[0][0]]
+        return exec_root
 
     def err_line_trace(self, line_ips):
         return " -> ".join(str(VM.err_line_num(line_ips, ip))
@@ -67,24 +63,30 @@ class VM(object):
             line_num = next_line_index
         return line_num + 1
 
-    def exec(self, exec_bytes, ip, *args):
-        self.operand_stack.extend(args)
+    def call(self, exec_bytes, ip, args=[], line_ips=None):
+        self.operand_stack.extend(VM.to_vm_object(arg) for arg in args)
         self.frame_stack.append(ip)
+        self.exec(exec_bytes, line_ips)
+        return self.operand_stack.pop()
+
+    def exec(self, exec_bytes, line_ips=None):
         ops = self.ops
+        ip = self.frame_stack[-1]
         try:
             while True:
                 ip = ops[exec_bytes[ip]](exec_bytes, ip+1)
-        except IndexError:
-            # This is a super hacky way to assume proper exit, 
-            # however, it allows for no exit test in main loop and
-            # no extra logic in any operation
-            pass
-        finally:
-            self.frame_stack.append(ip)
-        return self.operand_stack.pop()
+        except Exception as e:
+            self.frame_stack[-1] = ip
+            # This is a super hacky and will wrongly consider "actual"
+            # IndexErrors as a clean exit, but I don't really care;
+            # it allows for no test in main loop and no extra logic
+            # in any operation (ie. return)
+            if not isinstance(e, IndexError):
+                e.jam_line_trace = self.err_line_trace(line_ips)
+                raise
 
     @staticmethod
-    def compile_exec_bytes(jam):
+    def compile_exec_bytes(jam, tune=True):
         line_ips = [0]
         exec_bytes = array.array('H', (0 for _ in range(len(jam))))
         ip = 0
@@ -111,6 +113,10 @@ class VM(object):
                 line_ips.append(ip)
             else:
                 pass # no params
+
+        if tune:
+            exec_bytes = VM.tune_exec_bytes(exec_bytes)
+
         return exec_bytes, line_ips
 
     @staticmethod
@@ -486,7 +492,7 @@ if __name__ == "__main__":
             exit(1)
         except Exception as e:
             import traceback; traceback.print_exc()
-            sys.stderr.write("Compiler error on line {}".format(e.err_line_trace or '?'))
+            sys.stderr.write("Compiler error on line {}".format(e.jam_line_trace or '?'))
             exit(1)
         if compile_only:
             exit(0)
@@ -500,5 +506,5 @@ if __name__ == "__main__":
             print("Executed in {} seconds".format(time.time()-start_time))
     except Exception as e:
         import traceback; traceback.print_exc()
-        sys.stderr.write("Runtime error on line {}".format(e.err_line_trace or '?'))
+        sys.stderr.write("Runtime error on line {}".format(e.jam_line_trace or '?'))
         exit(1)
