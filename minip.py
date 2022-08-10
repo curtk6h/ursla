@@ -54,7 +54,7 @@ class VM(object):
 
     def err_line_trace(self, line_exec_indices):
         return " -> ".join(str(VM.err_line_num(line_exec_indices, i))
-                           for i in self.frame_stack[::-1])
+                           for i in self.frame_stack)
 
     @staticmethod
     def err_line_num(line_exec_indices, exec_index):
@@ -73,7 +73,7 @@ class VM(object):
 
     def exec(self, exec_set, line_exec_indices=None):
         exec_ops, _, _ = exec_set
-        ops = self.ops
+        ops = self.ops  # [self.ops[op] for op in exec_ops]  # DANGER: this will slowdown calls and needs to be rethought
         i = self.frame_stack[-1]
         try:
             while True:
@@ -85,22 +85,21 @@ class VM(object):
             # it allows for no test in main loop and no extra logic
             # in any operation (ie. return)
             if not isinstance(e, IndexError):
-                if line_exec_indices is None:
-                    e.jam_line_trace = self.err_line_trace(line_exec_indices)
+                e.jam_line_trace = self.err_line_trace(line_exec_indices)
                 raise
 
     @staticmethod
     def compile_exec_set(jam, tune=True):
         line_exec_indices = [0]
-        ips_to_exec_indexes = {}
+        ips_to_exec_indices = {}
         exec_ops = array.array('B', (0 for _ in jam))
-        exec_arg_indices = array.array('H', (0 for _ in jam))
+        exec_arg_indices = array.array('i', (0 for _ in jam))
         exec_args = []
         exec_index = 0
         ip = 0
         while ip < len(jam):
             op = ord(jam[ip])
-            ips_to_exec_indexes[ip] = exec_index
+            ips_to_exec_indices[ip] = exec_index
             exec_ops[exec_index] = op
             ip += 1
             # Handle arguments and special cases (ie. newline)
@@ -125,7 +124,7 @@ class VM(object):
                 ip += 2
             elif op in b'\n':
                 line_exec_indices.append(exec_index)
-                continue # skip newlines in exec structs
+                continue
             else:
                 pass # no args is okay too
             exec_index += 1
@@ -133,7 +132,7 @@ class VM(object):
         # Remap address references
         for i, op in enumerate(exec_ops):
             if op in b'r?jt':
-                exec_arg_indices[i] = ips_to_exec_indexes[exec_arg_indices[i]]
+                exec_arg_indices[i] = ips_to_exec_indices[exec_arg_indices[i]]
 
         # if tune:
         #     exec_bytes = VM.tune_exec_bytes(exec_bytes)
@@ -323,8 +322,8 @@ class VM(object):
             return os.pop()
         def _args(exec_set, i):
             vsi = len(fs) - 1
-            for i in range(exec_set[1][i])[::-1]:
-                vs[vsi][i] = os.pop()
+            for j in range(exec_set[1][i])[::-1]:
+                vs[vsi][j] = os.pop()
             return i + 1
         def _setl(exec_set, i):
             vs[len(fs)-1][exec_set[1][i]] = os.pop()
@@ -354,10 +353,10 @@ class VM(object):
             gv[0] = os.pop()
             if not self.err_stack:
                 raise VMError(VM.vm_object_to_str(gv[0]))
-            frame_n, i, operand_n = self.err_stack.pop()
+            frame_n, j, operand_n = self.err_stack.pop()
             del fs[frame_n:]
             del os[operand_n:]
-            return i
+            return j
         # REMINDER: write exec_index to fs[-1] before executing subroutine in func v
         def _is(exec_set, i):
             os[-1] = -1 if os[-2] is os.pop() else 0
