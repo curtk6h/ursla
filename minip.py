@@ -145,12 +145,12 @@ class VM(object):
         def incl(exec_bytes, op_ips):
             if exec_bytes[op_ips[0]+1] == exec_bytes[op_ips[0]+10]:
                 exec_bytes[op_ips[0]] = 0x91
-            return True
+                return True
 
         def decl(exec_bytes, op_ips):
             if exec_bytes[op_ips[0]+1] == exec_bytes[op_ips[0]+10]:
                 exec_bytes[op_ips[0]] = 0x92
-            return True
+                return True
 
         def getl2(exec_bytes, op_ips):
             exec_bytes[op_ips[0]] = 0x93
@@ -287,9 +287,9 @@ class VM(object):
         def _jmp(exec_bytes, ip):
             return exec_bytes[ip]
         def _jz(exec_bytes, ip):
-            if os.pop() == 0:
-                return exec_bytes[ip]
-            return ip + 4
+            if os.pop():
+                return ip + 4
+            return exec_bytes[ip]
         def _jsr(exec_bytes, ip):
             fs[-1] = ip
             fs.append(-1)
@@ -483,7 +483,7 @@ if __name__ == "__main__":
             out_file = args.output and open(args.output, "wt")
         else:
             out_file = io.StringIO()
-        compiler = VM.create_func(minip_jam, stdout=out_file, stdin=source)
+        compiler = VM.create_func(minip_jam, tune=False, stdout=out_file, stdin=source)
         try:
             compile, = compiler()
             compile(args.debug)
