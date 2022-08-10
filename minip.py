@@ -106,20 +106,19 @@ class VM(object):
             # Handle arguments and special cases (ie. newline)
             if op in b'gGisar?jt':
                 x = int(jam[ip:ip+4], 16)
-                exec_arg_indices[exec_index] = len(exec_args)
                 ip += 4
                 if op in b's':
+                    exec_arg_indices[exec_index] = len(exec_args)
                     exec_args.append(bytearray(jam[ip:ip+x], 'ascii'))
                     ip += x
                 elif op in b'i':
-                    exec_args.append(int16(x))
+                    exec_arg_indices[exec_index] = int16(x)
                 elif op in b'gG':
-                    exec_args.append(uint16(x))
+                    exec_arg_indices[exec_index] = uint16(x)
                 else: # addresses and array sizes
-                    exec_args.append(uint16(x))
+                    exec_arg_indices[exec_index] = uint16(x)
             elif op in b':#p':
-                exec_arg_indices[exec_index] = len(exec_args)
-                exec_args.append(uint16(int(jam[ip:ip+2], 16)))
+                exec_arg_indices[exec_index] = uint16(int(jam[ip:ip+2], 16))
                 ip += 2
             elif op in b'\\':
                 exec_ops[exec_index] = int(jam[ip:ip+2], 16)
@@ -134,8 +133,7 @@ class VM(object):
         # Remap address references
         for i, op in enumerate(exec_ops):
             if op in b'r?jt':
-                arg_index = exec_arg_indices[i]
-                exec_args[arg_index] = ips_to_exec_indexes[exec_args[arg_index]]
+                exec_arg_indices[i] = ips_to_exec_indexes[exec_arg_indices[i]]
 
         # if tune:
         #     exec_bytes = VM.tune_exec_bytes(exec_bytes)
@@ -256,20 +254,20 @@ class VM(object):
         def _nop(exec_set, i):
             return i + 1
         def _load_int(exec_set, i):
-            _, exec_arg_indices, exec_args = exec_set
-            os.append(exec_args[exec_arg_indices[i]])
+            _, exec_arg_indices, _ = exec_set
+            os.append(exec_arg_indices[i])
             return i + 1
         def _load_addr(exec_set, i):
-            _, exec_arg_indices, exec_args = exec_set
-            os.append(exec_args[exec_arg_indices[i]])
+            _, exec_arg_indices, _ = exec_set
+            os.append(exec_arg_indices[i])
             return i + 1
         def _load_str(exec_set, i):
             _, exec_arg_indices, exec_args = exec_set
             os.append(exec_args[exec_arg_indices[i]])
             return i + 1
         def _load_array(exec_set, i):
-            _, exec_arg_indices, exec_args = exec_set
-            n = exec_args[exec_arg_indices[i]]  # TODO: store this directly in exec_arg_ints_and_indices
+            _, exec_arg_indices, _ = exec_set
+            n = exec_arg_indices[i]
             a = os[-n:]
             del os[-n:]
             os.append(a)
@@ -317,47 +315,47 @@ class VM(object):
             os[-1] = os[-2] % os.pop()
             return i + 1
         def _jmp(exec_set, i):
-            _, exec_arg_indices, exec_args = exec_set
-            return exec_args[exec_arg_indices[i]]
+            _, exec_arg_indices, _ = exec_set
+            return exec_arg_indices[i]
         def _jz(exec_set, i):
             if os.pop():
                 return i + 1
-            _, exec_arg_indices, exec_args = exec_set
-            return exec_args[exec_arg_indices[i]]
+            _, exec_arg_indices, _ = exec_set
+            return exec_arg_indices[i]
         def _jsr(exec_set, i):
             fs[-1] = i + 1 # TODO: do this in return, is more right!
             fs.append(-1)
             return os.pop()
         def _args(exec_set, i):
-            _, exec_arg_indices, exec_args = exec_set
+            _, exec_arg_indices, _ = exec_set
             vsi = len(fs) - 1
-            for i in range(exec_args[exec_arg_indices[i]])[::-1]:
+            for i in range(exec_arg_indices[i])[::-1]:
                 vs[vsi][i] = os.pop()
             return i + 1
         def _setl(exec_set, i):
-            _, exec_arg_indices, exec_args = exec_set
-            vs[len(fs)-1][exec_args[exec_arg_indices[i]]] = os.pop()
+            _, exec_arg_indices, _ = exec_set
+            vs[len(fs)-1][exec_arg_indices[i]] = os.pop()
             return i + 1
         def _getl(exec_set, i):
-            _, exec_arg_indices, exec_args = exec_set
-            os.append(vs[len(fs)-1][exec_args[exec_arg_indices[i]]])
+            _, exec_arg_indices, _ = exec_set
+            os.append(vs[len(fs)-1][exec_arg_indices[i]])
             return i + 1
         def _setg(exec_set, i):
-            _, exec_arg_indices, exec_args = exec_set
-            gv[exec_args[exec_arg_indices[i]]] = os.pop()
+            _, exec_arg_indices, _ = exec_set
+            gv[exec_arg_indices[i]] = os.pop()
             return i + 1
         def _getg(exec_set, i):
-            _, exec_arg_indices, exec_args = exec_set
-            os.append(gv[exec_args[exec_arg_indices[i]]])
+            _, exec_arg_indices, _ = exec_set
+            os.append(gv[exec_arg_indices[i]])
             return i + 1
         def _ret(exec_set, i):
             fs.pop()
             return fs[-1]
         def _try(exec_set, i):
-            _, exec_arg_indices, exec_args = exec_set
+            _, exec_arg_indices, _ = exec_set
             self.err_stack.append((
                 len(self.frame_stack),
-                exec_args[exec_arg_indices[i]],
+                exec_arg_indices[i],
                 len(os)))
             return i + 1
         def _end_try(exec_set, i):
