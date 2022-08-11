@@ -40,7 +40,6 @@ class VM(object):
         self.start_time = time.time()
         self.stdout = stdout or sys.stdout
         self.stdin = stdin or sys.stdin
-        self._init_ops()
 
     @staticmethod
     def create_func(jam, tune=True, **vm_options):
@@ -72,12 +71,13 @@ class VM(object):
         return self.operand_stack.pop()
 
     def exec(self, exec_set, line_exec_indices=None):
-        exec_ops, _, _ = exec_set
-        ops = self.ops  # [self.ops[op] for op in exec_ops]  # DANGER: this will slowdown calls and needs to be rethought
+        exec_ops, exec_args = exec_set
+        ops = self._build_ops(exec_args)
+        direct_exec_ops = [ops[op] for op in exec_ops]  # DANGER: this will slowdown calls and needs to be rethought
         i = self.frame_stack[-1]
         try:
             while True:
-                i = ops[exec_ops[i]](exec_set, i)
+                i = direct_exec_ops[i](i)
         except Exception as e:
             self.frame_stack[-1] = i
             # This is a super hacky and will wrongly consider "actual"
@@ -93,8 +93,7 @@ class VM(object):
         line_exec_indices = [0]
         ips_to_exec_indices = {}
         exec_ops = array.array('B', (0 for _ in jam))
-        exec_arg_indices = array.array('i', (0 for _ in jam))
-        exec_args = []
+        exec_args = [None] * len(jam)  # this is a little hoggish, but fast
         exec_index = 0
         ip = 0
         while ip < len(jam):
@@ -107,17 +106,16 @@ class VM(object):
                 x = int(jam[ip:ip+4], 16)
                 ip += 4
                 if op in b's':
-                    exec_arg_indices[exec_index] = len(exec_args)
-                    exec_args.append(bytearray(jam[ip:ip+x], 'ascii'))
+                    exec_args[exec_index] = bytearray(jam[ip:ip+x], 'ascii')
                     ip += x
                 elif op in b'i':
-                    exec_arg_indices[exec_index] = int16(x)
+                    exec_args[exec_index] = int16(x)
                 elif op in b'gG':
-                    exec_arg_indices[exec_index] = uint16(x)
+                    exec_args[exec_index] = uint16(x)
                 else: # addresses and array sizes
-                    exec_arg_indices[exec_index] = uint16(x)
+                    exec_args[exec_index] = uint16(x)
             elif op in b':#p':
-                exec_arg_indices[exec_index] = uint16(int(jam[ip:ip+2], 16))
+                exec_args[exec_index] = uint16(int(jam[ip:ip+2], 16))
                 ip += 2
             elif op in b'\\':
                 exec_ops[exec_index] = int(jam[ip:ip+2], 16)
@@ -132,16 +130,16 @@ class VM(object):
         # Remap address references
         for i, op in enumerate(exec_ops):
             if op in b'r?jt':
-                exec_arg_indices[i] = ips_to_exec_indices[exec_arg_indices[i]]
+                exec_args[i] = ips_to_exec_indices[exec_args[i]]
 
         # if tune:
         #     exec_bytes = VM.tune_exec_bytes(exec_bytes)
 
         # Trim excess
         del exec_ops[exec_index:]
-        del exec_arg_indices[exec_index:]
+        del exec_args[exec_index:]
 
-        return (exec_ops, exec_arg_indices, exec_args), line_exec_indices
+        return (exec_ops, exec_args), line_exec_indices
 
     # @staticmethod
     # def tune_exec_bytes(exec_bytes):
@@ -245,111 +243,110 @@ class VM(object):
         else:
             return str(value)
         
-    def _init_ops(self):
+    def _build_ops(self, exec_args):
         os = self.operand_stack
         vs = self.var_stack
         gv = vs[0]
         fs = self.frame_stack
-        def _nop(exec_set, i):
+        def _nop(i):
             return i + 1
-        def _load_int(exec_set, i):
-            os.append(exec_set[1][i])
+        def _load_int(i):
+            os.append(exec_args[i])
             return i + 1
-        def _load_addr(exec_set, i):
-            os.append(exec_set[1][i])
+        def _load_addr(i):
+            os.append(exec_args[i])
             return i + 1
-        def _load_str(exec_set, i):
-            _, exec_arg_indices, exec_args = exec_set
-            os.append(exec_args[exec_arg_indices[i]])
+        def _load_str(i):
+            os.append(exec_args[i])
             return i + 1
-        def _load_array(exec_set, i):
-            n = exec_set[1][i]
+        def _load_array(i):
+            n = exec_args[i]
             a = os[-n:]
             del os[-n:]
             os.append(a)
             return i + 1
-        def _drop(exec_set, i):
+        def _drop(i):
             os.pop()
             return i + 1
-        def _eq(exec_set, i):
+        def _eq(i):
             os[-1] = T if os[-2] == os.pop() else F
             return i + 1
-        def _lt(exec_set, i):
+        def _lt(i):
             os[-1] = T if os[-2]  < os.pop() else F
             return i + 1
-        def _gt(exec_set, i):
+        def _gt(i):
             os[-1] = T if os[-2]  > os.pop() else F
             return i + 1
-        def _and(exec_set, i):
+        def _and(i):
             os[-1] = os[-2] & os.pop()
             return i + 1
-        def _or(exec_set, i):
+        def _or(i):
             os[-1] = os[-2] | os.pop()
             return i + 1
-        def _xor(exec_set, i):
+        def _xor(i):
             os[-1] = os[-2] ^ os.pop()
             return i + 1
-        def _not(exec_set, i):
+        def _not(i):
             os[-1] = ~os[-1]
             return i + 1
-        def _neg(exec_set, i):
+        def _neg(i):
             os[-1] = -os[-1]
             return i + 1
-        def _add(exec_set, i):
+        def _add(i):
             os[-1] = int16(os[-2]+os.pop())
             return i + 1
-        def _sub(exec_set, i):
+        def _sub(i):
             os[-1] = int16(os[-2]-os.pop())
             return i + 1
-        def _mul(exec_set, i):
+        def _mul(i):
             os[-1] = int16(os[-2]*os.pop())
             return i + 1
-        def _div(exec_set, i):
+        def _div(i):
             os[-1] = os[-2] // os.pop()
             return i + 1
-        def _mod(exec_set, i):
+        def _mod(i):
             os[-1] = os[-2] % os.pop()
             return i + 1
-        def _jmp(exec_set, i):
-            return exec_set[1][i]
-        def _jz(exec_set, i):
+        def _jmp(i):
+            return exec_args[i]
+        def _jz(i):
             if os.pop():
                 return i + 1
-            return exec_set[1][i]
-        def _jsr(exec_set, i):
+            return exec_args[i]
+        def _jsr(i):
             fs[-1] = i
             fs.append(-1)
             return os.pop()
-        def _args(exec_set, i):
+        def _args(i):
             vsi = len(fs) - 1
-            for j in range(exec_set[1][i])[::-1]:
+            for j in range(exec_args[i])[::-1]:
                 vs[vsi][j] = os.pop()
             return i + 1
-        def _setl(exec_set, i):
-            vs[len(fs)-1][exec_set[1][i]] = os.pop()
+        def _setl(i):
+            vs[len(fs)-1][exec_args[i]] = os.pop()
             return i + 1
-        def _getl(exec_set, i):
-            os.append(vs[len(fs)-1][exec_set[1][i]])
+        def _getl(i):
+            os.append(vs[len(fs)-1][exec_args[i]])
             return i + 1
-        def _setg(exec_set, i):
-            gv[exec_set[1][i]] = os.pop()
+        def _setg(i):
+            gv[exec_args[i]] = os.pop()
             return i + 1
-        def _getg(exec_set, i):
-            os.append(gv[exec_set[1][i]])
+        def _getg(i):
+            os.append(gv[exec_args[i]])
             return i + 1
-        def _ret(exec_set, i):
+        def _ret(i):
             fs.pop()
             return fs[-1] + 1
-        def _try(exec_set, i):
+        def _try(i):
             self.err_stack.append((
                 len(self.frame_stack),
-                exec_set[1][i],
+                exec_args[i],
                 len(os)))
             return i + 1
-        def _end_try(exec_set, i):
+        def _end_try(i):
             self.err_stack.pop()
             return i + 1
-        def _throw(exec_set, i):
+        def _throw(i):
             gv[0] = os.pop()
             if not self.err_stack:
                 raise VMError(VM.vm_object_to_str(gv[0]))
@@ -358,50 +355,50 @@ class VM(object):
             del os[operand_n:]
             return j
         # REMINDER: write exec_index to fs[-1] before executing subroutine in func v
-        def _is(exec_set, i):
+        def _is(i):
             os[-1] = -1 if os[-2] is os.pop() else 0
             return i + 1
-        def _weak(exec_set, i):
+        def _weak(i):
             return i + 1
-        def _time(exec_set, i):
+        def _time(i):
             os.append(uint16(round((time.time()-self.start_time)*1000)))
             return i + 1
-        def _in(exec_set, i):
+        def _in(i):
             os.append(bytearray(self.stdin.read(), 'ascii'))
             return i + 1
-        def _out(exec_set, i):
+        def _out(i):
             self.stdout.write(VM.vm_object_to_str(os[-1]))
             return i + 1
-        def _pack(exec_set, i):
+        def _pack(i):
             value, mask = os.pop(), os.pop()
             os[-1] = uint16((os[-1]&~mask)|(value<<ffb(mask)))
             return i + 1
-        def _unpack(exec_set, i):
+        def _unpack(i):
             mask = os.pop()
             os[-1] = ((uint16(os[-1])&mask)>>ffb(mask))
             return i + 1
-        def _clamp(exec_set, i):
+        def _clamp(i):
             max_, min_ = os.pop(), os.pop()
             os[-1] = min(max(os[-1], min_), max_)
             return i + 1
-        def _data(exec_set, i):
+        def _data(i):
             os[-1] = bytearray(os[-1])
             return i + 1
-        def _array(exec_set, i):
+        def _array(i):
             os.append([NIL]*uint16(os.pop()))
             return i + 1
-        def _len(exec_set, i):
+        def _len(i):
             os[-1] = len(os[-1])
             return i + 1
-        def _get(exec_set, i):
+        def _get(i):
             j, a = os.pop(), os.pop()
             os.append(a[uint16(j)])
             return i + 1
-        def _set(exec_set, i):
+        def _set(i):
             x, j, a = os.pop(), os.pop(), os[-1]
             a[uint16(j)] = x
             return i + 1
-        def _copy(exec_set, i):
+        def _copy(i):
             n, si, di, src = os.pop(), os.pop(), os.pop(), os.pop()
             dest = os[-1]
             for j in range(n):
@@ -424,56 +421,57 @@ class VM(object):
         # def _getli(exec_bytes, ip):
         #     os[-1] = os[-1][int16(exec_bytes[ip])]
         #     return ip + 10
-        self.ops = [_nop] * 256
-        self.ops[ord('i')] = _load_int
-        self.ops[ord('s')] = _load_str
-        self.ops[ord('a')] = _load_array
-        self.ops[ord('r')] = _load_addr
-        self.ops[ord(';')] = _drop        
-        self.ops[ord('~')] = _not    
-        self.ops[ord('n')] = _neg
-        self.ops[ord('=')] = _eq
-        self.ops[ord('<')] = _lt
-        self.ops[ord('>')] = _gt
-        self.ops[ord('|')] = _or
-        self.ops[ord('&')] = _and
-        self.ops[ord('^')] = _xor
-        self.ops[ord('+')] = _add
-        self.ops[ord('-')] = _sub
-        self.ops[ord('*')] = _mul
-        self.ops[ord('/')] = _div
-        self.ops[ord('%')] = _mod
-        self.ops[ord('?')] = _jz
-        self.ops[ord('j')] = _jmp
-        self.ops[ord('{')] = _jsr
-        self.ops[ord('p')] = _args
-        self.ops[ord(':')] = _setl
-        self.ops[ord('#')] = _getl
-        self.ops[ord('G')] = _setg
-        self.ops[ord('g')] = _getg
-        self.ops[ord('$')] = _ret
-        self.ops[ord('t')] = _try
-        self.ops[ord('T')] = _end_try
-        self.ops[ord('!')] = _throw        
-        self.ops[0x80] = _is
-        self.ops[0x81] = _weak
-        self.ops[0x82] = _time
-        self.ops[0x83] = _in
-        self.ops[0x84] = _out
-        self.ops[0x85] = _pack
-        self.ops[0x86] = _unpack
-        self.ops[0x87] = _clamp
-        self.ops[0x88] = _data
-        self.ops[0x89] = _array
-        self.ops[0x8a] = _len
-        self.ops[0x8b] = _get
-        self.ops[0x8c] = _set
-        self.ops[0x8d] = _copy
-        # self.ops[0x90] = _ijsr
-        # self.ops[0x91] = _incl
-        # self.ops[0x92] = _decl
-        # self.ops[0x93] = _getl2
-        # self.ops[0x94] = _getli
+        ops = [_nop] * 256
+        ops[ord('i')] = _load_int
+        ops[ord('s')] = _load_str
+        ops[ord('a')] = _load_array
+        ops[ord('r')] = _load_addr
+        ops[ord(';')] = _drop        
+        ops[ord('~')] = _not    
+        ops[ord('n')] = _neg
+        ops[ord('=')] = _eq
+        ops[ord('<')] = _lt
+        ops[ord('>')] = _gt
+        ops[ord('|')] = _or
+        ops[ord('&')] = _and
+        ops[ord('^')] = _xor
+        ops[ord('+')] = _add
+        ops[ord('-')] = _sub
+        ops[ord('*')] = _mul
+        ops[ord('/')] = _div
+        ops[ord('%')] = _mod
+        ops[ord('?')] = _jz
+        ops[ord('j')] = _jmp
+        ops[ord('{')] = _jsr
+        ops[ord('p')] = _args
+        ops[ord(':')] = _setl
+        ops[ord('#')] = _getl
+        ops[ord('G')] = _setg
+        ops[ord('g')] = _getg
+        ops[ord('$')] = _ret
+        ops[ord('t')] = _try
+        ops[ord('T')] = _end_try
+        ops[ord('!')] = _throw        
+        ops[0x80] = _is
+        ops[0x81] = _weak
+        ops[0x82] = _time
+        ops[0x83] = _in
+        ops[0x84] = _out
+        ops[0x85] = _pack
+        ops[0x86] = _unpack
+        ops[0x87] = _clamp
+        ops[0x88] = _data
+        ops[0x89] = _array
+        ops[0x8a] = _len
+        ops[0x8b] = _get
+        ops[0x8c] = _set
+        ops[0x8d] = _copy
+        # ops[0x90] = _ijsr
+        # ops[0x91] = _incl
+        # ops[0x92] = _decl
+        # ops[0x93] = _getl2
+        # ops[0x94] = _getli
+        return ops
 
 if __name__ == "__main__":
     import argparse
