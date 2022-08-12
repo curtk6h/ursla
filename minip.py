@@ -131,89 +131,53 @@ class VM(object):
             if op in b'r?jt':
                 exec_args[i] = ips_to_exec_indices[exec_args[i]]
 
-        # if tune:
-        #     exec_bytes = VM.tune_exec_bytes(exec_bytes)
+        # Tune calls
+        if tune:
+            global_funcs = {} # index -> byte addr
+            def mark_global_func(i):
+                global_funcs[exec_args[i+1]] = exec_args[i]
+            def global_func_call(i):
+                func_addr = global_funcs.get(exec_args[i])
+                if func_addr is None:
+                    return False # indirect call, leave as is
+                elif exec_ops[func_addr] >= 0x80: # native
+                    exec_ops[i] = exec_ops[func_addr]
+                    exec_ops[i+1] = 0  # TODO: delete op/arg instead
+                else: # direct call
+                    exec_ops[i] = 0x90
+                    exec_args[i] = func_addr
+                return True
+            def incl(i):
+                if exec_args[i] == exec_args[i+3]:
+                    exec_ops[i] = 0x91
+                    return True
+            def decl(i):
+                if exec_args[i] == exec_args[i+3]:
+                    exec_ops[i] = 0x92
+                    return True
+            def getl2(i):
+                exec_ops[i] = 0x93
+                return True
+            i = 0
+            while i < len(exec_ops):
+                for pattern, func in [
+                    (b'rG', mark_global_func),
+                    (b'g{', global_func_call),
+                    (b'#i+:', incl),
+                    (b'#i-:', decl),
+                    (b'##', getl2)
+                ]:
+                    if bytes(exec_ops[i:i+len(pattern)]) == pattern and func(i):
+                        i += len(pattern)
+                        break
+                else:
+                    i += 1
 
         # Trim excess
         del exec_ops[exec_index:]
         del exec_args[exec_index:]
 
         return (exec_ops, exec_args), line_exec_indices
-
-    # @staticmethod
-    # def tune_exec_bytes(exec_bytes):
-    #     funcs = {}
-                
-    #     def mark_func(exec_bytes, op_ips):
-    #         funcs[exec_bytes[op_ips[1]+1]] = \
-    #             exec_bytes[op_ips[0]+1]
-    #         return True
-
-    #     def global_func_call(exec_bytes, op_ips):
-    #         func_addr = funcs.get(exec_bytes[op_ips[0]+1])
-    #         if func_addr is None:
-    #             return False  # indirect call, leave as is
-    #         elif exec_bytes[func_addr] >= 0x80:
-    #             # native
-    #             exec_bytes[op_ips[0]] = exec_bytes[func_addr]
-    #             exec_bytes[op_ips[1]] = 0
-    #         else:
-    #             # direct call
-    #             exec_bytes[op_ips[0]] = 0x90
-    #             exec_bytes[op_ips[0]+1] = func_addr
-    #         return True
-
-    #     def incl(exec_bytes, op_ips):
-    #         if exec_bytes[op_ips[0]+1] == exec_bytes[op_ips[0]+10]:
-    #             exec_bytes[op_ips[0]] = 0x91
-    #             return True
-
-    #     def decl(exec_bytes, op_ips):
-    #         if exec_bytes[op_ips[0]+1] == exec_bytes[op_ips[0]+10]:
-    #             exec_bytes[op_ips[0]] = 0x92
-    #             return True
-
-    #     def getl2(exec_bytes, op_ips):
-    #         exec_bytes[op_ips[0]] = 0x93
-    #         return True
-
-    #     def getli(exec_bytes, op_ips):
-    #         func_addr = funcs.get(exec_bytes[op_ips[1]+1])
-    #         if func_addr is None or exec_bytes[func_addr] != 0x8b:
-    #             return False
-    #         exec_bytes[op_ips[0]] = 0x94
-    #         return True
-            
-    #     patterns = [
-    #         ('rG', mark_func),
-    #         ('ig{', getli),
-    #         ('g{', global_func_call),
-    #         ('#i+:', incl),
-    #         ('#i-:', decl),
-    #         ('##', getl2)
-    #     ]
-    #     max_pattern_length = max(len(pattern) for pattern, _ in patterns)
-    #     op_ips = []
-    #     ip = 0
-    #     while ip < len(exec_bytes):
-    #         op_ips.append(ip)
-    #         if len(op_ips) > max_pattern_length:
-    #             op_ips.pop(0)
-    #         op = exec_bytes[ip]
-    #         ip += 1
-    #         if op >= 0x80 or op in b':#p':
-    #             ip += 2
-    #         elif op in b'gGisar?jt':
-    #             if op == b's':
-    #                 ip += exec_bytes[ip]
-    #             ip += 4
-    #         op_window = ''.join(chr(exec_bytes[x] if x >= 0 else 0x00) for x in op_ips)
-    #         for pattern, func in patterns:
-    #             if op_window[:len(pattern)] == pattern:
-    #                 if func(exec_bytes, op_ips):
-    #                     op_ips = op_ips[len(pattern):]
-
-    #     return exec_bytes
 
     @staticmethod
     def to_vm_object(value):
@@ -247,6 +211,7 @@ class VM(object):
         vs = self.var_stack
         gv = vs[0]
         fs = self.frame_stack
+        es = self.err_stack
         def _nop(i):
             return i + 1
         def _load_int(i):
@@ -337,16 +302,16 @@ class VM(object):
             fs.pop()
             return fs[-1] + 1
         def _try(i):
-            self.err_stack.append((len(fs), exec_args[i], len(os)))
+            es.append((len(fs), exec_args[i], len(os)))
             return i + 1
         def _end_try(i):
-            self.err_stack.pop()
+            es.pop()
             return i + 1
         def _throw(i):
             gv[0] = os.pop()
-            if not self.err_stack:
+            if not es:
                 raise VMError(VM.vm_object_to_str(gv[0]))
-            frame_n, j, operand_n = self.err_stack.pop()
+            frame_n, j, operand_n = es.pop()
             del fs[frame_n:]
             del os[operand_n:]
             return j
@@ -400,23 +365,23 @@ class VM(object):
             for j in range(n):
                 dest[di+j] = src[si+j]
             return i + 1
-        # def _ijsr(exec_bytes, ip):
-        #     fs[-1] = ip + 5
-        #     fs.append(-1)
-        #     return exec_bytes[ip]
-        # def _incl(exec_bytes, ip):
-        #     vs[len(fs)-1][exec_bytes[ip]] += int16(exec_bytes[ip+3])
-        #     return ip + 11
-        # def _decl(exec_bytes, ip):
-        #     vs[len(fs)-1][exec_bytes[ip]] -= int16(exec_bytes[ip+3])
-        #     return ip + 11
-        # def _getl2(exec_bytes, ip):
-        #     os.append(vs[len(fs)-1][exec_bytes[ip]])
-        #     os.append(vs[len(fs)-1][exec_bytes[ip+3]])
-        #     return ip + 5
-        # def _getli(exec_bytes, ip):
-        #     os[-1] = os[-1][int16(exec_bytes[ip])]
-        #     return ip + 10
+        def _jsrd(i):
+            fs[-1] = i + 1 # advance from "g" to "{"
+            fs.append(-1)
+            return exec_args[i]
+        def _incl(i):
+            vs[len(fs)-1][exec_args[i]] += int16(exec_args[i+1])
+            return i + 4
+        def _decl(i):
+            vs[len(fs)-1][exec_args[i]] -= int16(exec_args[i+1])
+            return i + 4
+        def _getl2(i):
+            os.append(vs[len(fs)-1][exec_args[i]])
+            os.append(vs[len(fs)-1][exec_args[i+1]])
+            return i + 2
+        def _getli(i):
+            os[-1] = os[-1][exec_args[i]]
+            return i + 4
         ops = [_nop] * 256
         ops[ord('i')] = _load_int
         ops[ord('s')] = _load_str
@@ -462,11 +427,11 @@ class VM(object):
         ops[0x8b] = _get
         ops[0x8c] = _set
         ops[0x8d] = _copy
-        # ops[0x90] = _ijsr
-        # ops[0x91] = _incl
-        # ops[0x92] = _decl
-        # ops[0x93] = _getl2
-        # ops[0x94] = _getli
+        ops[0x90] = _jsrd
+        ops[0x91] = _incl
+        ops[0x92] = _decl
+        ops[0x93] = _getl2
+        ops[0x94] = _getli
         return ops
 
 if __name__ == "__main__":
