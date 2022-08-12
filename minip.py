@@ -1,9 +1,7 @@
 #!/usr/local/bin/python3
 
 # TODO:
-# - separate ops from exec_bytes to make all ops += 1
-# - get rid of need for u?int16(exec_bytes) 
-# - small program optimization: turn exec_ops => exec_direct_ops = self.ops[exec_ops[op]] structure
+# - cleanup direct ops mess
 # - cleanup tuning, simplify naming of funcs
 # - rename native => operation
 # - clamp => min, max :)
@@ -72,8 +70,9 @@ class VM(object):
 
     def exec(self, exec_set, line_exec_indices=None):
         exec_ops, exec_args = exec_set
+        # DANGER: this will slowdown calls and needs to be rethought -- move to compile_exec_set?
         ops = self._build_ops(exec_args)
-        direct_exec_ops = [ops[op] for op in exec_ops]  # DANGER: this will slowdown calls and needs to be rethought
+        direct_exec_ops = [ops[op] for op in exec_ops]
         i = self.frame_stack[-1]
         try:
             while True:
@@ -81,9 +80,9 @@ class VM(object):
         except Exception as e:
             self.frame_stack[-1] = i
             # This is a super hacky and will wrongly consider "actual"
-            # IndexErrors as a clean exit, but I don't really care;
-            # it allows for no test in main loop and no extra logic
-            # in any operation (ie. return)
+            # IndexErrors as a clean exit, but I don't really care!
+            # It allows for no test in main loop and no extra logic
+            # in any operation (ie. return) to eke out even more performance!
             if not isinstance(e, IndexError):
                 e.jam_line_trace = self.err_line_trace(line_exec_indices)
                 raise
@@ -338,10 +337,7 @@ class VM(object):
             fs.pop()
             return fs[-1] + 1
         def _try(i):
-            self.err_stack.append((
-                len(self.frame_stack),
-                exec_args[i],
-                len(os)))
+            self.err_stack.append((len(fs), exec_args[i], len(os)))
             return i + 1
         def _end_try(i):
             self.err_stack.pop()
