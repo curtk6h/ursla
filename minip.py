@@ -134,6 +134,10 @@ class VM(object):
         # Tune calls
         if tune:
             global_funcs = {} # index -> byte addr
+            def _shift_exec_addrs(i, shift):
+                for j, op in enumerate(exec_ops):
+                    if op in b'r?jt' and exec_args[j] > i:
+                        exec_args[j] += shift 
             def mark_global_func(i):
                 global_funcs[exec_args[i+1]] = exec_args[i]
             def global_func_call(i):
@@ -142,7 +146,10 @@ class VM(object):
                     return False # indirect call, leave as is
                 elif exec_ops[func_addr] >= 0x80: # native
                     exec_ops[i] = exec_ops[func_addr]
-                    exec_ops[i+1] = 0  # TODO: delete op/arg instead
+                    #exec_ops[i+1] = 0
+                    del exec_ops[i+1]
+                    del exec_args[i+1]
+                    _shift_exec_addrs(i+1, -1)
                 else: # direct call
                     exec_ops[i] = 0x90
                     exec_args[i] = func_addr
