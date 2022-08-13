@@ -147,15 +147,15 @@ class VM(object):
                     exec_ops[i] = 0x90
                     exec_args[i] = func_addr
                 return True
-            def incl(i):
+            def increment_local(i):
                 if exec_args[i] == exec_args[i+3]:
                     exec_ops[i] = 0x91
                     return True
-            def decl(i):
+            def decrement_local(i):
                 if exec_args[i] == exec_args[i+3]:
                     exec_ops[i] = 0x92
                     return True
-            def getl2(i):
+            def get_local_2(i):
                 exec_ops[i] = 0x93
                 return True
             i = 0
@@ -163,9 +163,9 @@ class VM(object):
                 for pattern, func in [
                     (b'rG', mark_global_func),
                     (b'g{', global_func_call),
-                    (b'#i+:', incl),
-                    (b'#i-:', decl),
-                    (b'##', getl2)
+                    (b'#i+:', increment_local),
+                    (b'#i-:', decrement_local),
+                    (b'##', get_local_2)
                 ]:
                     if bytes(exec_ops[i:i+len(pattern)]) == pattern and func(i):
                         i += len(pattern)
@@ -271,13 +271,13 @@ class VM(object):
         def _mod(i):
             os[-1] = os[-2] % os.pop()
             return i + 1
-        def _jmp(i):
+        def _jump(i):
             return exec_args[i]
-        def _jz(i):
+        def _jump_if_zero(i):
             if os.pop():
                 return i + 1
             return exec_args[i]
-        def _jsr(i):
+        def _call(i):
             fs[-1] = i
             fs.append(-1)
             return os.pop()
@@ -286,19 +286,19 @@ class VM(object):
             for j in range(exec_args[i])[::-1]:
                 vs[vsi][j] = os.pop()
             return i + 1
-        def _setl(i):
+        def _set_local(i):
             vs[len(fs)-1][exec_args[i]] = os.pop()
             return i + 1
-        def _getl(i):
+        def _get_local(i):
             os.append(vs[len(fs)-1][exec_args[i]])
             return i + 1
-        def _setg(i):
+        def _set_global(i):
             gv[exec_args[i]] = os.pop()
             return i + 1
-        def _getg(i):
+        def _get_global(i):
             os.append(gv[exec_args[i]])
             return i + 1
-        def _ret(i):
+        def _return(i):
             fs.pop()
             return fs[-1] + 1
         def _try(i):
@@ -365,23 +365,20 @@ class VM(object):
             for j in range(n):
                 dest[di+j] = src[si+j]
             return i + 1
-        def _jsrd(i):
+        def _jump_func_direct(i):
             fs[-1] = i + 1 # advance from "g" to "{"
             fs.append(-1)
             return exec_args[i]
-        def _incl(i):
+        def _increment_local(i):
             vs[len(fs)-1][exec_args[i]] += int16(exec_args[i+1])
             return i + 4
-        def _decl(i):
+        def _decrement_local(i):
             vs[len(fs)-1][exec_args[i]] -= int16(exec_args[i+1])
             return i + 4
-        def _getl2(i):
+        def _get_local_2(i):
             os.append(vs[len(fs)-1][exec_args[i]])
             os.append(vs[len(fs)-1][exec_args[i+1]])
             return i + 2
-        def _getli(i):
-            os[-1] = os[-1][exec_args[i]]
-            return i + 4
         ops = [_nop] * 256
         ops[ord('i')] = _load_int
         ops[ord('s')] = _load_str
@@ -401,15 +398,15 @@ class VM(object):
         ops[ord('*')] = _mul
         ops[ord('/')] = _div
         ops[ord('%')] = _mod
-        ops[ord('?')] = _jz
-        ops[ord('j')] = _jmp
-        ops[ord('{')] = _jsr
+        ops[ord('?')] = _jump_if_zero
+        ops[ord('j')] = _jump
+        ops[ord('{')] = _call
         ops[ord('p')] = _args
-        ops[ord(':')] = _setl
-        ops[ord('#')] = _getl
-        ops[ord('G')] = _setg
-        ops[ord('g')] = _getg
-        ops[ord('$')] = _ret
+        ops[ord(':')] = _set_local
+        ops[ord('#')] = _get_local
+        ops[ord('G')] = _set_global
+        ops[ord('g')] = _get_global
+        ops[ord('$')] = _return
         ops[ord('t')] = _try
         ops[ord('T')] = _end_try
         ops[ord('!')] = _throw        
@@ -427,11 +424,10 @@ class VM(object):
         ops[0x8b] = _get
         ops[0x8c] = _set
         ops[0x8d] = _copy
-        ops[0x90] = _jsrd
-        ops[0x91] = _incl
-        ops[0x92] = _decl
-        ops[0x93] = _getl2
-        ops[0x94] = _getli
+        ops[0x90] = _jump_func_direct
+        ops[0x91] = _increment_local
+        ops[0x92] = _decrement_local
+        ops[0x93] = _get_local_2
         return ops
 
 if __name__ == "__main__":
