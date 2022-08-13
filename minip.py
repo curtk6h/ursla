@@ -146,7 +146,6 @@ class VM(object):
                     return False # indirect call, leave as is
                 elif exec_ops[func_addr] >= 0x80: # native
                     exec_ops[i] = exec_ops[func_addr]
-                    #exec_ops[i+1] = 0
                     del exec_ops[i+1]
                     del exec_args[i+1]
                     _shift_exec_addrs(i+1, -1)
