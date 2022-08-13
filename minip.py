@@ -155,7 +155,7 @@ class VM(object):
                 if exec_args[i] == exec_args[i+3]:
                     exec_ops[i] = 0x92
                     return True
-            def get_local_2(i):
+            def get_two_locals(i):
                 exec_ops[i] = 0x93
                 return True
             i = 0
@@ -165,7 +165,7 @@ class VM(object):
                     (b'g{', global_func_call),
                     (b'#i+:', increment_local),
                     (b'#i-:', decrement_local),
-                    (b'##', get_local_2)
+                    (b'##', get_two_locals)
                 ]:
                     if bytes(exec_ops[i:i+len(pattern)]) == pattern and func(i):
                         i += len(pattern)
@@ -375,7 +375,7 @@ class VM(object):
         def _decrement_local(i):
             vs[len(fs)-1][exec_args[i]] -= int16(exec_args[i+1])
             return i + 4
-        def _get_local_2(i):
+        def _get_two_locals(i):
             os.append(vs[len(fs)-1][exec_args[i]])
             os.append(vs[len(fs)-1][exec_args[i+1]])
             return i + 2
@@ -427,7 +427,7 @@ class VM(object):
         ops[0x90] = _jump_func_direct
         ops[0x91] = _increment_local
         ops[0x92] = _decrement_local
-        ops[0x93] = _get_local_2
+        ops[0x93] = _get_two_locals
         return ops
 
 if __name__ == "__main__":
