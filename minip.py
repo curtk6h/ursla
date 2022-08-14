@@ -2,8 +2,6 @@
 
 # TODO:
 # - cleanup direct ops mess
-# - cleanup tuning, simplify naming of funcs
-# - rename native => operation
 # - clamp => min, max :)
 # - vsc syntax highlighting
 # - vsc preview
@@ -43,9 +41,13 @@ class VM(object):
     def create_func(jam, tune=True, **vm_options):
         vm = VM(**vm_options)
         exec_set, line_exec_indices = VM.compile_exec_set(jam, tune=tune)
+        # DANGER: this will slowdown calls and needs to be rethought -- move to compile_exec_set?
+        exec_opcodes, exec_args = exec_set
+        ops = vm._build_ops(exec_args)
+        exec_ops = [ops[opcode] for opcode in exec_opcodes]
         def exec_root():
-            vm.exec(exec_set, line_exec_indices)
-            return [lambda *sub_args: vm.call(exec_set, f, sub_args, line_exec_indices)
+            vm.exec(exec_ops, line_exec_indices)
+            return [lambda *sub_args: vm.call(exec_ops, f, sub_args, line_exec_indices)
                 for f in vm.var_stack[0][0]]
         return exec_root
 
@@ -62,21 +64,17 @@ class VM(object):
             line_num = next_line_index
         return line_num + 1
 
-    def call(self, exec_set, ip, args=[], line_exec_indices=None):
+    def call(self, exec_ops, i, args=[], line_exec_indices=None):
         self.operand_stack.extend(VM.to_vm_object(arg) for arg in args)
-        self.frame_stack.append(ip)
-        self.exec(exec_set, line_exec_indices)
+        self.frame_stack.append(i)
+        self.exec(exec_ops, line_exec_indices)
         return self.operand_stack.pop()
 
-    def exec(self, exec_set, line_exec_indices=None):
-        exec_ops, exec_args = exec_set
-        # DANGER: this will slowdown calls and needs to be rethought -- move to compile_exec_set?
-        ops = self._build_ops(exec_args)
-        direct_exec_ops = [ops[op] for op in exec_ops]
+    def exec(self, exec_ops, line_exec_indices=None):
         i = self.frame_stack[-1]
         try:
             while True:
-                i = direct_exec_ops[i](i)
+                i = exec_ops[i](i)
         except Exception as e:
             self.frame_stack[-1] = i
             # This is a super hacky and will wrongly consider "actual"
@@ -101,7 +99,7 @@ class VM(object):
             exec_ops[exec_index] = op
             ip += 1
             # Handle arguments and special cases (ie. newline)
-            if op in b'gGisar?jt':
+            if op in b'gGisaf?jt':
                 x = int(jam[ip:ip+4], 16)
                 ip += 4
                 if op in b's':
@@ -128,7 +126,7 @@ class VM(object):
 
         # Remap address references
         for i, op in enumerate(exec_ops):
-            if op in b'r?jt':
+            if op in b'f?jt':
                 exec_args[i] = ips_to_exec_indices[exec_args[i]]
 
         # Tune calls
@@ -140,28 +138,28 @@ class VM(object):
                 func_addr = global_funcs.get(exec_args[i])
                 if func_addr is None:
                     return False # indirect call, leave as is
-                elif exec_ops[func_addr] >= 0x80: # native
+                elif exec_ops[func_addr] >= 0x80:
                     exec_ops[i] = exec_ops[func_addr]
                     exec_ops[i+1] = 0
                 else: # direct call
-                    exec_ops[i] = 0x90
+                    exec_ops[i] = 0x10
                     exec_args[i] = func_addr
                 return True
             def increment_local(i):
                 if exec_args[i] == exec_args[i+3]:
-                    exec_ops[i] = 0x91
+                    exec_ops[i] = 0x11
                     return True
             def decrement_local(i):
                 if exec_args[i] == exec_args[i+3]:
-                    exec_ops[i] = 0x92
+                    exec_ops[i] = 0x12
                     return True
             def get_two_locals(i):
-                exec_ops[i] = 0x93
+                exec_ops[i] = 0x13
                 return True
             i = 0
             while i < len(exec_ops):
                 for pattern, func in [
-                    (b'rG', mark_global_func),
+                    (b'fG', mark_global_func),
                     (b'g{', global_func_call),
                     (b'#i+:', increment_local),
                     (b'#i-:', decrement_local),
@@ -383,7 +381,7 @@ class VM(object):
         ops[ord('i')] = _load_int
         ops[ord('s')] = _load_str
         ops[ord('a')] = _load_array
-        ops[ord('r')] = _load_addr
+        ops[ord('f')] = _load_addr
         ops[ord(';')] = _drop        
         ops[ord('~')] = _not    
         ops[ord('n')] = _neg
@@ -409,7 +407,11 @@ class VM(object):
         ops[ord('$')] = _return
         ops[ord('t')] = _try
         ops[ord('T')] = _end_try
-        ops[ord('!')] = _throw        
+        ops[ord('!')] = _throw
+        ops[0x10] = _jump_func_direct
+        ops[0x11] = _increment_local
+        ops[0x12] = _decrement_local
+        ops[0x13] = _get_two_locals
         ops[0x80] = _is
         ops[0x81] = _weak
         ops[0x82] = _time
@@ -424,10 +426,6 @@ class VM(object):
         ops[0x8b] = _get
         ops[0x8c] = _set
         ops[0x8d] = _copy
-        ops[0x90] = _jump_func_direct
-        ops[0x91] = _increment_local
-        ops[0x92] = _decrement_local
-        ops[0x93] = _get_two_locals
         return ops
 
 if __name__ == "__main__":

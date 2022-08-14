@@ -3,7 +3,7 @@
   @ Stdlib
   @
 
-  @ Stdlib | Natives
+  @ Stdlib | Built-ins
   :ERR @ required!
   :NIL
   :T:1=1
@@ -290,24 +290,24 @@
 
   @ Compiler | Operator Constants
   :NOP:20
-  :LODI:69
-  :LODS:73
-  :LODA:61
-  :LODR:72
-  :NATV:5c
+  :OP_BY_CODE:5c
   :DROP:3b
-  :GETL:23
-  :GETG:67
-  :SETL:3a
-  :SETG:47
+  :LOAD_INT:69
+  :LOAD_STR:73
+  :LOAD_ARRAY:61
+  :LOAD_FUNC:66
+  :GET_LOCAL:23
+  :GET_GLOBAL:67
+  :SET_LOCAL:3a
+  :SET_GLOBAL:47
   :JUMP:6a
-  :JZ:3f
-  :JSR:7b
+  :JUMP_IF_ZERO:3f
+  :CALL:7b
   :ARGS:70
-  :RET:24
+  :RETURN:24
   :TRY:74
-  :ETRY:54
-  :THRO:21
+  :END_TRY:54
+  :THROW:21
   :NOT:7e
   :NEG:6e
 
@@ -462,7 +462,7 @@
   @ Compiler | Compile
   :Compiler_c_integer(comp,code,i){
     :i:Compiler_parse_int(code,i)
-    Compiler_append_op_w_short(comp,LODI,r1)
+    Compiler_append_op_w_short(comp,LOAD_INT,r1)
     $i
   }
   :Compiler_c_operand(comp,code,i){
@@ -479,7 +479,7 @@
       ?~(get(code,j)=QUOTATION_MARK){
         :j:j+1
       }^
-      Compiler_append_op_w_short(comp,LODS,j-i)
+      Compiler_append_op_w_short(comp,LOAD_STR,j-i)
       Compiler_append_data(comp,code,i,j)
       $j+1
     }
@@ -492,7 +492,7 @@
         :lv:Compiler_lv(comp)
         :li:find(Vector_v(lv),0,Vector_n(lv),symbol_id)
         ?li>-1{
-          Compiler_append_op_w_byte(comp,GETL,li)
+          Compiler_append_op_w_byte(comp,GET_LOCAL,li)
           $i
         }
       }
@@ -500,7 +500,7 @@
       :gv:Compiler_gv(comp)
       :gi:find(Vector_v(gv),0,Vector_n(gv),symbol_id)
       ?gi>-1{
-        Compiler_append_op_w_short(comp,GETG,gi)
+        Compiler_append_op_w_short(comp,GET_GLOBAL,gi)
         $i
       }
       Compiler_throw_syntax_err(code,i,"Variable not defined")
@@ -517,13 +517,13 @@
         :i:Compiler_c_expr(comp,code,i+1)
         :n:n+1
       }^
-      Compiler_append_op_w_short(comp,LODA,n)
+      Compiler_append_op_w_short(comp,LOAD_ARRAY,n)
       $i
     }
-    @ native
+    @ operation-by-code (for defining built-ins)
     ?c=BACKSLASH{
       :i:Compiler_parse_int(code,i+1)
-      Compiler_append_op_w_byte(comp,NATV,r1)
+      Compiler_append_op_w_byte(comp,OP_BY_CODE,r1)
       $i
     }
     Compiler_throw_syntax_err(code,i,"Invalid operand")
@@ -551,7 +551,7 @@
       }^
       :i:i+1 @ consume )
       Compiler_swap_chunks(comp,operand_start,args_start,args_start,Compiler_jam_idx(comp))
-      Compiler_append_op(comp,JSR)
+      Compiler_append_op(comp,CALL)
     }^
     @ apply pre operator
     ?not{
@@ -599,12 +599,12 @@
         :here:Compiler_jam_idx(comp)
         Compiler_append_op_w_addr(comp,TRY,0)
         :i:Compiler_c_code_block(comp,code,i+1)
-        Compiler_append_op(comp,ETRY)
+        Compiler_append_op(comp,END_TRY)
       }:{
         :top:Compiler_jam_idx(comp)
         :i:Compiler_c_expr(comp,code,i+1)
         :here:Compiler_jam_idx(comp)
-        Compiler_append_op_w_addr(comp,JZ,0)
+        Compiler_append_op_w_addr(comp,JUMP_IF_ZERO,0)
         :i:Compiler_c_code_block(comp,code,i)
       }
       ?get(code,i)=COLON{
@@ -617,7 +617,7 @@
           ?get(code,i)=QUESTION_MARK{
             :i:Compiler_c_expr(comp,code,i+1)
             :there:Compiler_jam_idx(comp)
-            Compiler_append_op_w_addr(comp,JZ,0)
+            Compiler_append_op_w_addr(comp,JUMP_IF_ZERO,0)
             :i:Compiler_c_code_block(comp,code,i)
             Compiler_encode_short(comp,here+1,Compiler_jam_idx(comp))
             :here:there
@@ -674,12 +674,12 @@
           :i:Compiler_c_code_block(comp,code,i)
           Vector_pop(vs)
           Compiler_encode_short(comp,top+1,Compiler_jam_idx(comp))
-          Compiler_append_op_w_addr(comp,LODR,top+5)
+          Compiler_append_op_w_addr(comp,LOAD_FUNC,top+5)
         }
         ?gi>-1{
-          Compiler_append_op_w_short(comp,SETG,gi)
+          Compiler_append_op_w_short(comp,SET_GLOBAL,gi)
         }:{
-          Compiler_append_op_w_byte(comp,SETL,li)
+          Compiler_append_op_w_byte(comp,SET_LOCAL,li)
         }
       }
     }:?is_word(c){
@@ -689,11 +689,11 @@
     }:?c=DOLLAR_SIGN{
       @ return
       :i:Compiler_c_expr(comp,code,i+1)
-      Compiler_append_op(comp,RET)
+      Compiler_append_op(comp,RETURN)
     }:?c=EXCLAMATION_MARK{
       @ throw
       :i:Compiler_c_expr(comp,code,i+1)
-      Compiler_append_op(comp,THRO)
+      Compiler_append_op(comp,THROW)
     }:?c=AT_SIGN{
       @ annotation
       ?~(get(code,i)=NL){
