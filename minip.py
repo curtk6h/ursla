@@ -1,7 +1,6 @@
 #!/usr/local/bin/python3
 
 # TODO:
-# - cleanup direct ops mess
 # - clamp => min, max :)
 # - vsc syntax highlighting
 # - vsc preview
@@ -40,11 +39,7 @@ class VM(object):
     @staticmethod
     def create_func(jam, tune=True, **vm_options):
         vm = VM(**vm_options)
-        exec_set, line_exec_indices = VM.compile_exec_set(jam, tune=tune)
-        # DANGER: this will slowdown calls and needs to be rethought -- move to compile_exec_set?
-        exec_opcodes, exec_args = exec_set
-        ops = vm._build_ops(exec_args)
-        exec_ops = [ops[opcode] for opcode in exec_opcodes]
+        exec_ops, line_exec_indices = vm.compile_exec_ops(jam, tune=tune)
         def exec_root():
             vm.exec(exec_ops, line_exec_indices)
             return [lambda *sub_args: vm.call(exec_ops, f, sub_args, line_exec_indices)
@@ -85,18 +80,25 @@ class VM(object):
                 e.jam_line_trace = self.err_line_trace(line_exec_indices)
                 raise
 
+    def compile_exec_ops(self, jam, tune=True):
+        exec_opcodes, exec_args, line_exec_indices = \
+            VM._compile_exec_set(jam, tune=tune)
+        ops = self._build_ops(exec_args)
+        exec_ops = [ops[opcode] for opcode in exec_opcodes]
+        return exec_ops, line_exec_indices
+
     @staticmethod
-    def compile_exec_set(jam, tune=True):
+    def _compile_exec_set(jam, tune=True):
         line_exec_indices = [0]
         ips_to_exec_indices = {}
-        exec_ops = array.array('B', (0 for _ in jam))
+        exec_opcodes = array.array('B', (0 for _ in jam))
         exec_args = [None] * len(jam)  # this is a little hoggish, but fast
         exec_index = 0
         ip = 0
         while ip < len(jam):
             op = ord(jam[ip])
             ips_to_exec_indices[ip] = exec_index
-            exec_ops[exec_index] = op
+            exec_opcodes[exec_index] = op
             ip += 1
             # Handle arguments and special cases (ie. newline)
             if op in b'gGisaf?jt':
@@ -115,7 +117,7 @@ class VM(object):
                 exec_args[exec_index] = uint16(int(jam[ip:ip+2], 16))
                 ip += 2
             elif op in b'\\':
-                exec_ops[exec_index] = int(jam[ip:ip+2], 16)
+                exec_opcodes[exec_index] = int(jam[ip:ip+2], 16)
                 ip += 2
             elif op in b'\n':
                 line_exec_indices.append(exec_index)
@@ -125,7 +127,7 @@ class VM(object):
             exec_index += 1
 
         # Remap address references
-        for i, op in enumerate(exec_ops):
+        for i, op in enumerate(exec_opcodes):
             if op in b'f?jt':
                 exec_args[i] = ips_to_exec_indices[exec_args[i]]
 
@@ -138,26 +140,26 @@ class VM(object):
                 func_addr = global_funcs.get(exec_args[i])
                 if func_addr is None:
                     return False # indirect call, leave as is
-                elif exec_ops[func_addr] >= 0x80:
-                    exec_ops[i] = exec_ops[func_addr]
-                    exec_ops[i+1] = 0
+                elif exec_opcodes[func_addr] >= 0x80:
+                    exec_opcodes[i] = exec_opcodes[func_addr]
+                    exec_opcodes[i+1] = 0
                 else: # direct call
-                    exec_ops[i] = 0x10
+                    exec_opcodes[i] = 0x10
                     exec_args[i] = func_addr
                 return True
             def increment_local(i):
                 if exec_args[i] == exec_args[i+3]:
-                    exec_ops[i] = 0x11
+                    exec_opcodes[i] = 0x11
                     return True
             def decrement_local(i):
                 if exec_args[i] == exec_args[i+3]:
-                    exec_ops[i] = 0x12
+                    exec_opcodes[i] = 0x12
                     return True
             def get_two_locals(i):
-                exec_ops[i] = 0x13
+                exec_opcodes[i] = 0x13
                 return True
             i = 0
-            while i < len(exec_ops):
+            while i < len(exec_opcodes):
                 for pattern, func in [
                     (b'fG', mark_global_func),
                     (b'g{', global_func_call),
@@ -165,17 +167,17 @@ class VM(object):
                     (b'#i-:', decrement_local),
                     (b'##', get_two_locals)
                 ]:
-                    if bytes(exec_ops[i:i+len(pattern)]) == pattern and func(i):
+                    if bytes(exec_opcodes[i:i+len(pattern)]) == pattern and func(i):
                         i += len(pattern)
                         break
                 else:
                     i += 1
 
         # Trim excess
-        del exec_ops[exec_index:]
+        del exec_opcodes[exec_index:]
         del exec_args[exec_index:]
 
-        return (exec_ops, exec_args), line_exec_indices
+        return exec_opcodes, exec_args, line_exec_indices
 
     @staticmethod
     def to_vm_object(value):
