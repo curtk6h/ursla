@@ -5,20 +5,35 @@ A dirt simple language that's easy to understand and interpret.
 ## These aren't defects, they're features!
 
 * No bloat
+
     With extremely limited syntax and built-in functionality, it's incredibly lightweight and staightforward to implement in another better language. Also, the compiler for Ursla is written in Ursla, so no additional porting is required.
+
 * No tokenizing / No trees (ie. parse tree or AST) / No safety nets (ie. type checking)
+
     By only having single character "keywords" there's little need for tokenizing code before compilation. Also, the grammar was designed around being easy to compile, and only requires a lookahead in one or two spots.
+
 * No "short circuiting" of logical expressions
+
     Sure it means the expressions are evaluated in full every time, but execution time will be constant!
+
 * No base-10 integer literals, only hexidecimal
+
     This may sound horrible but hey, at least it's not /only/ base-10, so you can still spell out funny words in your numbers (ex. `+deadbeef`). Just make sure numbers starting with a - f are prefixed with a `+` or the parser will freak out :(
+
 * No whitespace
+
     Space or newline character indicate the end of a statement and that's it, so you don't have to decide how to space things.
+
 * No string or map or boolean types
+
     Enjoy the charm of more primitive primitives.
+
 * No classes
+
     Who needs 'em when you have fun and completely unenforced coding patterns.
+
 * No FOR loops or other super useful syntaxes/constructs that are widely-offered
+
     Don't get me wrong, I like FOR loops, lambdas, list comprehensions, etc., but they're all gravy.
 
 ## Is there any practical reason to use this language?
