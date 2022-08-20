@@ -1,22 +1,30 @@
 Ursla (UniveRsally Shitty Language)
 
-An easy to parse and interpret language that can do some things. Plus ELECTROLYTES!
+A dirt simple language that's easy to understand and interpret.
 
-NO Tokenizing
-NO Trees (ie. Parse Tree or AST)
-NO Safety Nets
+These aren't defects, they're features!
 
-About those things it can do, here's a random list of features:
-
-* Portability
-    With a dirt simple syntax and minimal built-in function, it's easy to implement in another better language. Also, the compiler for Ursla is written in Ursla, so no additional porting is required.
-* Logical expressions don't "short circuit"
+* No bloat
+    With extremely limited syntax and built-in functionality, it's incredibly lightweight and staightforward to implement in another better language. Also, the compiler for Ursla is written in Ursla, so no additional porting is required.
+* No tokenizing / No trees (ie. parse tree or AST) / No safety nets (ie. type checking)
+    By only having single character "keywords" there's little need for tokenizing code before compilation. Also, the grammar was designed around being easy to compile, and only requires a lookahead in one or two spots.
+* No "short circuiting" of logical expressions
     Sure it means the expressions are evaluated in full every time, but execution time will be constant!
-* Integer literals can only be expressed using hexidecimal
-    This may sound horrible but hey, at least it's not only base-10, so you can still spell out funny words in your numbers (ex. `+deadbeef`). just make sure numbers starting with a - f are prefixed with a `+` or the parser will freak out
+* No base-10 integer literals, only hexidecimal
+    This may sound horrible but hey, at least it's not /only/ base-10, so you can still spell out funny words in your numbers (ex. `+deadbeef`). Just make sure numbers starting with a - f are prefixed with a `+` or the parser will freak out :(
 * No whitespace
     Space or newline character indicate the end of a statement and that's it, so you don't have to decide how to space things.
 * No string or map or boolean types
-    Enjoy the charm of more rustic primitives.
-* No classes!
-    Who needs 'em when you have super fun coding patterns.
+    Enjoy the charm of more primitive primitives.
+* No classes
+    Who needs 'em when you have fun and completely unenforced coding patterns.
+* No FOR loops or other super useful syntaxes/constructs that are widely-offered
+    Don't get me wrong, I like FOR loops, lambdas, list comprehensions, etc., but they're all gravy.
+
+Is there any practical reason to use this language?
+
+No, I can't think of one. Ursla is meant to be a toy and work-of-art and not much more. I will say that, because it's such a dumb language, it'd be quite easy to tailor to a custom need if you have one. Other than that, it could possibly serve as an example for someone interested in learning the very basics of compilers and languages.
+
+Disclaimer / About the author
+
+Hi. I don't have a whole lot of expertise on compilers. I took a class many years ago on the subject, and learned about language grammars and did an exercise using yacc or javacc (don't remember which one), but that's about it. Because of this, Ursla was especially fun to work on, with lots of room for creativity and exploration.
