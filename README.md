@@ -18,7 +18,7 @@ A dirt simple language that's easy to understand and interpret.
 
 * NO base-10 integer literals, only hexidecimal
 
-    *This may sound horrible but hey, at least it's not /only/ base-10, so you can still spell out funny words in your numbers (ex. `+deadbeef`). Just make sure numbers starting with a - f are prefixed with a `+` or the parser will freak out :(*
+    *This may sound horrible but hey, at least it's not only base-10, so you can still spell out funny words in your numbers (ex. `+deadbeef`). Just make sure numbers starting with a - f are prefixed with a `+` or the parser will freak out :(*
 
 * NO whitespace
 
