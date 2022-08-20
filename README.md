@@ -32,9 +32,9 @@ A dirt simple language that's easy to understand and interpret.
 
     *Who needs 'em when you have fun and completely unenforced coding patterns.*
 
-* NO FOR loops or other super useful syntaxes/constructs that are widely-offered
+* NO for-loops or other super useful syntaxes/constructs that are widely-offered
 
-    *Don't get me wrong, I like FOR loops, lambdas, list comprehensions, etc., but they're all gravy.*
+    *Don't get me wrong, I like for-loops, lambdas, list comprehensions, etc., but get outta here.*
 
 ## Is there any practical reason to use this language?
 
