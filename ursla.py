@@ -1,9 +1,9 @@
 #!/usr/local/bin/python3
 
 # TODO:
-# - clamp => min, max :)
-# - vsc syntax highlighting
-# - vsc preview
+# - add bsearch(), use to build associative array of symbols in compiler
+# - add b64(), decodeb64()
+# - change clamp() => min() max() :)~
 
 import sys, time, io, array
 
@@ -182,6 +182,8 @@ class VM(object):
     @staticmethod
     def to_vm_object(value):
         # Note that reciprocal function does not exist because types do not map 1:1
+        # ex. text strings become just data in minip and can't be distinguished
+        # reliably from other non-text data
         if value is None:
             return NIL
         elif isinstance(value, str):

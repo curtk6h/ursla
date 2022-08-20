@@ -210,6 +210,9 @@
   }
 
   @ Stdlib | Data/Array
+  :assign(a,b){
+    $copy(a,b,0,0,len(a))
+  }
   :count(a,i,j,x){
     :n:0
     ?i<j{
