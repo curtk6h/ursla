@@ -182,7 +182,7 @@ class VM(object):
     @staticmethod
     def to_vm_object(value):
         # Note that reciprocal function does not exist because types do not map 1:1
-        # ex. text strings become just data in minip and can't be distinguished
+        # ex. text strings become just data in ursla and can't be distinguished
         # reliably from other non-text data
         if value is None:
             return NIL
@@ -434,7 +434,7 @@ class VM(object):
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description='MiniP v0.1 | Compile and execute ky/jam scripts')
+    parser = argparse.ArgumentParser(description='Ursla v0.1 | Compile and execute ky/jam scripts')
     parser.add_argument('source', nargs='?',
                         help='source file')
     parser.add_argument('-o', '--output',
@@ -453,7 +453,7 @@ if __name__ == "__main__":
                         help='print time it takes to execute')
     args = parser.parse_args()
 
-    minip_jam = open(args.compiler_jam or 'minip.jam').read()
+    ursla_jam = open(args.compiler_jam or 'ursla.jam').read()
     source = open(args.source) if args.source else sys.stdin
     is_source_jam = args.jam or (args.source and args.source[-4:].lower()==".jam")
     compile_only = args.compile_only or args.output
@@ -466,7 +466,7 @@ if __name__ == "__main__":
             out_file = args.output and open(args.output, "wt")
         else:
             out_file = io.StringIO()
-        compiler = VM.create_func(minip_jam, tune=False, stdout=out_file, stdin=source)
+        compiler = VM.create_func(ursla_jam, tune=False, stdout=out_file, stdin=source)
         try:
             compile, = compiler()
             compile(args.debug)
