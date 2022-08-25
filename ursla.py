@@ -26,6 +26,11 @@ def uint16(value):
 class VMError(Exception):
     pass
 
+class InternalVMError(Exception):
+    def __init__(self, line_trace):
+        super(InternalVMError, self).__init__("Runtime error on line {}".format(line_trace or '?'))
+        self.line_trace = line_trace
+
 class VM(object):
     def __init__(self, stdout=None, stdin=None):
         self.operand_stack = []
@@ -39,7 +44,7 @@ class VM(object):
     @staticmethod
     def create_func(jam, tune=True, **vm_options):
         vm = VM(**vm_options)
-        exec_ops, line_exec_indices = vm.compile_exec_ops(jam, tune=tune)
+        exec_ops, line_exec_indices = vm.compile_exec_op_list(jam, tune=tune)
         def exec_root():
             vm.exec(exec_ops, line_exec_indices)
             return [lambda *sub_args: vm.call(exec_ops, f, sub_args, line_exec_indices)
@@ -70,17 +75,19 @@ class VM(object):
         try:
             while True:
                 i = exec_ops[i](i)
-        except Exception as e:
+        except VMError:
             self.frame_stack[-1] = i
+            raise
+        except Exception as e:
+            self.frame_stack[-1] = i  # must happen here so not to throw off line trace
             # This is a super hacky and will wrongly consider "actual"
             # IndexErrors as a clean exit, but I don't really care!
             # It allows for no test in main loop and no extra logic
             # in any operation (ie. return) to eke out even more performance!
             if not isinstance(e, IndexError):
-                e.jam_line_trace = self.err_line_trace(line_exec_indices)
-                raise
+                raise InternalVMError(self.err_line_trace(line_exec_indices)) from e
 
-    def compile_exec_ops(self, jam, tune=True):
+    def compile_exec_op_list(self, jam, tune=True):
         exec_opcodes, exec_args, line_exec_indices = \
             VM._compile_exec_set(jam, tune=tune)
         ops = self._build_ops(exec_args)
@@ -92,7 +99,7 @@ class VM(object):
         line_exec_indices = [0]
         ips_to_exec_indices = {}
         exec_opcodes = array.array('B', (0 for _ in jam))
-        exec_args = [None] * len(jam)  # this is a little hoggish, but fast
+        exec_args = [None] * len(jam)
         exec_index = 0
         ip = 0
         while ip < len(jam):
@@ -131,7 +138,7 @@ class VM(object):
             if op in b'f?jt':
                 exec_args[i] = ips_to_exec_indices[exec_args[i]]
 
-        # Tune calls
+        # Tune calls (this is an optional step, for performance only)
         if tune:
             global_funcs = {} # index -> byte addr
             def mark_global_func(i):
@@ -432,6 +439,24 @@ class VM(object):
         ops[0x8d] = _copy
         return ops
 
+def compile(source, dest=None, debug=False, ursla_filename=None):
+    dest_is_stringio = dest is None
+    if dest_is_stringio:
+        dest = io.StringIO()
+    ursla_jam = open(ursla_filename or 'ursla.jam').read()
+    compiler = VM.create_func(ursla_jam, tune=False, stdout=dest, stdin=source)
+    compile, = compiler()
+    compile(debug)
+    return dest_is_stringio and dest.getvalue()
+
+def create_func(source, is_jam=False, tune=True, stdout=None, debug=False, ursla_filename=None, **vm_options):
+    if not is_jam:
+        source = compile(source, debug=debug)
+    else:
+        if not isinstance(source, str):
+            source = source.read()
+    return VM.create_func(source, **vm_options)
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='Ursla v0.1 | Compile and execute ky/jam scripts')
@@ -453,41 +478,26 @@ if __name__ == "__main__":
                         help='print time it takes to execute')
     args = parser.parse_args()
 
-    ursla_jam = open(args.compiler_jam or 'ursla.jam').read()
     source = open(args.source) if args.source else sys.stdin
-    is_source_jam = args.jam or (args.source and args.source[-4:].lower()==".jam")
-    compile_only = args.compile_only or args.output
+    is_jam = args.jam or (args.source and args.source[-4:].lower()==".jam")
+    tune = not args.disable_tuning
+    compiler_options = dict(debug=args.debug, ursla_filename=args.compiler_jam)
 
-    if is_source_jam:
-        # no compilation needed, just read in and skip to execution!
-        code = source.read()
-    else:
-        if compile_only:
-            out_file = args.output and open(args.output, "wt")
-        else:
-            out_file = io.StringIO()
-        compiler = VM.create_func(ursla_jam, tune=False, stdout=out_file, stdin=source)
-        try:
-            compile, = compiler()
-            compile(args.debug)
-        except VMError as vm_error:
-            sys.stderr.write(str(vm_error))
-            exit(1)
-        except Exception as e:
-            import traceback; traceback.print_exc()
-            sys.stderr.write("Compiler error on line {}".format(e.jam_line_trace or '?'))
-            exit(1)
-        if compile_only:
-            exit(0)
-        code = out_file.getvalue()
-
-    run_program = VM.create_func(code, tune=(not args.disable_tuning))
     try:
-        start_time = time.time()
-        run_program()
-        if args.execution_time:
-            print("Executed in {} seconds".format(time.time()-start_time))
-    except Exception as e:
-        import traceback; traceback.print_exc()
-        sys.stderr.write("Runtime error on line {}".format(e.jam_line_trace or '?'))
+        if args.compile_only or args.output:
+            if is_jam:
+                raise ValueError("Can't compile jam file")
+            out_file = args.output and open(args.output, "wt")
+            compile(source, out_file or sys.stdout, **compiler_options)
+            exit(0)
+        else:
+            # TODO: fix stdin/out
+            run_program = create_func(source, is_jam=is_jam, tune=tune, **compiler_options)
+    except VMError as e:
+        sys.stderr.write(str(e))
         exit(1)
+
+    start_time = time.time()
+    run_program()
+    if args.execution_time:
+        print("Executed in {} seconds".format(time.time()-start_time))
