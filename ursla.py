@@ -447,6 +447,8 @@ def compile(source, dest, debug=False, ursla_filename=None):
     compile_(debug)
 
 def compile_func(source, debug=False, ursla_filename=None, **vm_options):
+    if isinstance(source, str):
+        source = io.StringIO(source)
     dest = io.StringIO()
     compile(source, dest, debug=debug, ursla_filename=ursla_filename)
     return VM.create_func(dest.getvalue(), **vm_options)
