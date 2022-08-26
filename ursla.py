@@ -1,6 +1,7 @@
 #!/usr/local/bin/python3
 
 # TODO:
+# - fix stdin/out in cli
 # - add bsearch(), use to build associative array of symbols in compiler
 # - add b64(), decodeb64()
 # - change clamp() => min() max() :)~
@@ -439,23 +440,16 @@ class VM(object):
         ops[0x8d] = _copy
         return ops
 
-def compile(source, dest=None, debug=False, ursla_filename=None):
-    dest_is_stringio = dest is None
-    if dest_is_stringio:
-        dest = io.StringIO()
+def compile(source, dest, debug=False, ursla_filename=None):
     ursla_jam = open(ursla_filename or 'ursla.jam').read()
     compiler = VM.create_func(ursla_jam, tune=False, stdout=dest, stdin=source)
-    compile, = compiler()
-    compile(debug)
-    return dest_is_stringio and dest.getvalue()
+    compile_, = compiler()
+    compile_(debug)
 
-def create_func(source, is_jam=False, tune=True, stdout=None, debug=False, ursla_filename=None, **vm_options):
-    if not is_jam:
-        source = compile(source, debug=debug)
-    else:
-        if not isinstance(source, str):
-            source = source.read()
-    return VM.create_func(source, **vm_options)
+def compile_func(source, debug=False, ursla_filename=None, **vm_options):
+    dest = io.StringIO()
+    compile(source, dest, debug=debug, ursla_filename=ursla_filename)
+    return VM.create_func(dest.getvalue(), **vm_options)
 
 if __name__ == "__main__":
     import argparse
@@ -477,7 +471,6 @@ if __name__ == "__main__":
     parser.add_argument('--execution-time', action='store_true',
                         help='print time it takes to execute')
     args = parser.parse_args()
-
     source = open(args.source) if args.source else sys.stdin
     is_jam = args.jam or (args.source and args.source[-4:].lower()==".jam")
     tune = not args.disable_tuning
@@ -490,9 +483,12 @@ if __name__ == "__main__":
             out_file = args.output and open(args.output, "wt")
             compile(source, out_file or sys.stdout, **compiler_options)
             exit(0)
+        if is_jam:
+            if not isinstance(source, str):
+                source = source.read()
+            run_program = VM.create_func(source, tune=tune)
         else:
-            # TODO: fix stdin/out
-            run_program = create_func(source, is_jam=is_jam, tune=tune, **compiler_options)
+            run_program = compile_func(source, tune=tune, **compiler_options)
     except VMError as e:
         sys.stderr.write(str(e))
         exit(1)
