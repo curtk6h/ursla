@@ -1,6 +1,8 @@
 #!/usr/local/bin/python3
 
 # TODO:
+# - rename jam
+# - rename ky
 # - fix stdin/out in cli
 # - add bsearch(), use to build associative array of symbols in compiler
 # - add b64(), decodeb64()
@@ -29,49 +31,26 @@ class VMError(Exception):
 
 class InternalVMError(Exception):
     def __init__(self, line_trace):
-        super(InternalVMError, self).__init__("Runtime error on line {}".format(line_trace or '?'))
+        super(InternalVMError, self).__init__("Internal error: {}".format(line_trace or '?'))
         self.line_trace = line_trace
 
 class VM(object):
     def __init__(self, stdout=None, stdin=None):
         self.operand_stack = []
         self.var_stack = [[NIL]*1024] + [[NIL]*256 for _ in range(49)]
-        self.frame_stack = [0]
         self.err_stack = []
+        self.frame_stack = [0]
         self.start_time = time.time()
         self.stdout = stdout or sys.stdout
         self.stdin = stdin or sys.stdin
 
-    @staticmethod
-    def create_func(jam, tune=True, **vm_options):
-        vm = VM(**vm_options)
-        exec_ops, line_exec_indices = vm.compile_exec_op_list(jam, tune=tune)
-        def exec_root():
-            vm.exec(exec_ops, line_exec_indices)
-            return [lambda *sub_args: vm.call(exec_ops, f, sub_args, line_exec_indices)
-                for f in vm.var_stack[0][0]]
-        return exec_root
-
-    def err_line_trace(self, line_exec_indices):
-        return " -> ".join(str(VM.err_line_num(line_exec_indices, i))
-                           for i in self.frame_stack)
-
-    @staticmethod
-    def err_line_num(line_exec_indices, exec_index):
-        line_num = 0
-        for next_line_index, next_exec_index in enumerate(line_exec_indices):
-            if exec_index < next_exec_index:
-                break
-            line_num = next_line_index
-        return line_num + 1
-
     def call(self, exec_ops, i, args=[], line_exec_indices=None):
         self.operand_stack.extend(VM.to_vm_object(arg) for arg in args)
         self.frame_stack.append(i)
-        self.exec(exec_ops, line_exec_indices)
+        self.execute(exec_ops, line_exec_indices)
         return self.operand_stack.pop()
 
-    def exec(self, exec_ops, line_exec_indices=None):
+    def execute(self, exec_ops, line_exec_indices=None):
         i = self.frame_stack[-1]
         try:
             while True:
@@ -186,6 +165,19 @@ class VM(object):
         del exec_args[exec_index:]
 
         return exec_opcodes, exec_args, line_exec_indices
+
+    def err_line_trace(self, line_exec_indices):
+        return " -> ".join(str(VM.find_line_index(line_exec_indices, i)+1)
+                           for i in self.frame_stack)
+
+    @staticmethod
+    def find_line_index(line_exec_indices, exec_index):
+        line_num = 0
+        for next_line_index, next_exec_index in enumerate(line_exec_indices):
+            if exec_index < next_exec_index:
+                break
+            line_num = next_line_index
+        return line_num
 
     @staticmethod
     def to_vm_object(value):
@@ -440,18 +432,38 @@ class VM(object):
         ops[0x8d] = _copy
         return ops
 
+class UrslaScript(object):
+    def __init__(self, jam, tune=True, **vm_options):
+        self.jam = jam
+        self.vm = VM(**vm_options)
+        self.exec_ops, self.line_exec_indices = \
+            self.vm.compile_exec_op_list(jam, tune=tune)
+
+    @staticmethod            
+    def compile(source, debug=False, ursla_filename=None, **vm_options):
+        if isinstance(source, str):
+            source = io.StringIO(source)
+        dest = io.StringIO()
+        compile(source, dest, debug=debug, ursla_filename=ursla_filename)
+        return UrslaScript(dest.getvalue(), **vm_options)
+
+    def call(self, func_idx, *args):
+        return self.vm.call(self.exec_ops, self.vm.var_stack[0][0][func_idx], args, self.line_exec_indices)
+        
+    def execute(self):
+        self.vm.execute(self.exec_ops, self.line_exec_indices)
+
+    def __call__(self, num_funcs=0):
+        self.execute()
+        return tuple(
+            lambda args: self.call(func_idx, args) 
+            for func_idx in range(num_funcs)
+        )
+
 def compile(source, dest, debug=False, ursla_filename=None):
     ursla_jam = open(ursla_filename or 'ursla.jam').read()
-    compiler = VM.create_func(ursla_jam, tune=False, stdout=dest, stdin=source)
-    compile_, = compiler()
+    compile_, = UrslaScript(ursla_jam, tune=False, stdout=dest, stdin=source)(1)
     compile_(debug)
-
-def compile_func(source, debug=False, ursla_filename=None, **vm_options):
-    if isinstance(source, str):
-        source = io.StringIO(source)
-    dest = io.StringIO()
-    compile(source, dest, debug=debug, ursla_filename=ursla_filename)
-    return VM.create_func(dest.getvalue(), **vm_options)
 
 if __name__ == "__main__":
     import argparse
@@ -488,9 +500,9 @@ if __name__ == "__main__":
         if is_jam:
             if not isinstance(source, str):
                 source = source.read()
-            run_program = VM.create_func(source, tune=tune)
+            run_program = UrslaScript(source, tune=tune)
         else:
-            run_program = compile_func(source, tune=tune, **compiler_options)
+            run_program = UrslaScript.compile(source, tune=tune, **compiler_options)
     except VMError as e:
         sys.stderr.write(str(e))
         exit(1)
