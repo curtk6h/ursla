@@ -468,7 +468,7 @@ if __name__ == "__main__":
     parser.add_argument('source', nargs='?',
                         help='source file; if not specified then stdin is used')
     parser.add_argument('-d', '--dest',
-                        help='compile to custom filename or stdout if set to "", then exit (do not execute)')
+                        help='compile to custom file or stdout if set to "", then exit (do not execute)')
     parser.add_argument('-c', '--compile-only', action='store_true',
                         help='compile then exit (do not execute)')
     parser.add_argument('--compiler',
