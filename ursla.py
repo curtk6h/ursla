@@ -1,7 +1,6 @@
 #!/usr/local/bin/python3
 
 # TODO:
-# - fix stdin/out in cli
 # - add bsearch(), use to build associative array of symbols in compiler
 # - add b64(), decodeb64()
 # - change clamp() => min() max() :)~
@@ -467,9 +466,9 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='Ursla v0.1 | Compile and execute Ursla scripts')
     parser.add_argument('source', nargs='?',
-                        help='source file')
-    parser.add_argument('-o', '--output',
-                        help='compile to file, then exit (do not execute)')
+                        help='source file; if not specified then stdin is used')
+    parser.add_argument('-d', '--dest',
+                        help='compile to file or stdout if set to "", then exit (do not execute)')
     parser.add_argument('-c', '--compile-only', action='store_true',
                         help='compile then exit (do not execute)')
     parser.add_argument('--compiler',
@@ -489,11 +488,17 @@ if __name__ == "__main__":
     compiler_options = dict(debug=args.debug, ursla_filename=args.compiler)
 
     try:
-        if args.compile_only or args.output:
+        if args.compile_only or args.dest is not None:
             if is_ir:
                 raise ValueError("Can't compile what is already compiled, duh")
-            out_file = args.output and open(args.output, "wt")
-            compile(source, out_file or sys.stdout, **compiler_options)
+            dest_filename = args.dest
+            if dest_filename == "" or (dest_filename is None and args.source is None):
+                dest_file = sys.stdout
+            else:
+                if not dest_filename:  # default dest filename to source filename
+                    dest_filename = args.source + "ir"
+                dest_file = open(dest_filename, "wt")
+            compile(source, dest_file, **compiler_options)
             exit(0)
         if is_ir:
             if not isinstance(source, str):
