@@ -1,8 +1,6 @@
 #!/usr/local/bin/python3
 
 # TODO:
-# - rename jam
-# - rename ky
 # - fix stdin/out in cli
 # - add bsearch(), use to build associative array of symbols in compiler
 # - add b64(), decodeb64()
@@ -67,32 +65,32 @@ class VM(object):
             if not isinstance(e, IndexError):
                 raise InternalVMError(self.err_line_trace(line_exec_indices)) from e
 
-    def compile_exec_op_list(self, jam, tune=True):
+    def compile_exec_op_list(self, ir, tune=True):
         exec_opcodes, exec_args, line_exec_indices = \
-            VM._compile_exec_set(jam, tune=tune)
+            VM._compile_exec_set(ir, tune=tune)
         ops = self._build_ops(exec_args)
         exec_ops = [ops[opcode] for opcode in exec_opcodes]
         return exec_ops, line_exec_indices
 
     @staticmethod
-    def _compile_exec_set(jam, tune=True):
+    def _compile_exec_set(ir, tune=True):
         line_exec_indices = [0]
         ips_to_exec_indices = {}
-        exec_opcodes = array.array('B', (0 for _ in jam))
-        exec_args = [None] * len(jam)
+        exec_opcodes = array.array('B', (0 for _ in ir))
+        exec_args = [None] * len(ir)
         exec_index = 0
         ip = 0
-        while ip < len(jam):
-            op = ord(jam[ip])
+        while ip < len(ir):
+            op = ord(ir[ip])
             ips_to_exec_indices[ip] = exec_index
             exec_opcodes[exec_index] = op
             ip += 1
             # Handle arguments and special cases (ie. newline)
             if op in b'gGisaf?jt':
-                x = int(jam[ip:ip+4], 16)
+                x = int(ir[ip:ip+4], 16)
                 ip += 4
                 if op in b's':
-                    exec_args[exec_index] = bytearray(jam[ip:ip+x], 'ascii')
+                    exec_args[exec_index] = bytearray(ir[ip:ip+x], 'ascii')
                     ip += x
                 elif op in b'i':
                     exec_args[exec_index] = int16(x)
@@ -101,10 +99,10 @@ class VM(object):
                 else: # addresses and array sizes
                     exec_args[exec_index] = uint16(x)
             elif op in b':#p':
-                exec_args[exec_index] = uint16(int(jam[ip:ip+2], 16))
+                exec_args[exec_index] = uint16(int(ir[ip:ip+2], 16))
                 ip += 2
             elif op in b'\\':
-                exec_opcodes[exec_index] = int(jam[ip:ip+2], 16)
+                exec_opcodes[exec_index] = int(ir[ip:ip+2], 16)
                 ip += 2
             elif op in b'\n':
                 line_exec_indices.append(exec_index)
@@ -433,11 +431,11 @@ class VM(object):
         return ops
 
 class UrslaScript(object):
-    def __init__(self, jam, tune=True, **vm_options):
-        self.jam = jam
+    def __init__(self, ir, tune=True, **vm_options):
+        self.ir = ir
         self.vm = VM(**vm_options)
         self.exec_ops, self.line_exec_indices = \
-            self.vm.compile_exec_op_list(jam, tune=tune)
+            self.vm.compile_exec_op_list(ir, tune=tune)
 
     @staticmethod            
     def compile(source, debug=False, ursla_filename=None, **vm_options):
@@ -461,43 +459,43 @@ class UrslaScript(object):
         )
 
 def compile(source, dest, debug=False, ursla_filename=None):
-    ursla_jam = open(ursla_filename or 'ursla.jam').read()
-    compile_, = UrslaScript(ursla_jam, tune=False, stdout=dest, stdin=source)(1)
+    ursla_uir = open(ursla_filename or 'ursla.uir').read()
+    compile_, = UrslaScript(ursla_uir, tune=False, stdout=dest, stdin=source)(1)
     compile_(debug)
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description='Ursla v0.1 | Compile and execute ky/jam scripts')
+    parser = argparse.ArgumentParser(description='Ursla v0.1 | Compile and execute Ursla scripts')
     parser.add_argument('source', nargs='?',
                         help='source file')
     parser.add_argument('-o', '--output',
-                        help='output jam file (implies compile-only)')
+                        help='compile to file, then exit (do not execute)')
     parser.add_argument('-c', '--compile-only', action='store_true',
-                        help='compile to jam, then exit (do not execute)')
-    parser.add_argument('--compiler-jam',
-                        help='compiler jam file')
+                        help='compile then exit (do not execute)')
+    parser.add_argument('--compiler',
+                        help='compiler IR file')
     parser.add_argument('--debug', action='store_true',
                         help='compile with debug information')
     parser.add_argument('--disable-tuning', action='store_true',
                         help='disable performance tuning of executable code')
-    parser.add_argument('--jam', action='store_true',
-                        help='source is jam')
+    parser.add_argument('--ir', action='store_true',
+                        help='source is compiled/IR')
     parser.add_argument('--execution-time', action='store_true',
                         help='print time it takes to execute')
     args = parser.parse_args()
     source = open(args.source) if args.source else sys.stdin
-    is_jam = args.jam or (args.source and args.source[-4:].lower()==".jam")
+    is_ir = args.ir or (args.source and args.source[-4:].lower()==".uir")
     tune = not args.disable_tuning
-    compiler_options = dict(debug=args.debug, ursla_filename=args.compiler_jam)
+    compiler_options = dict(debug=args.debug, ursla_filename=args.compiler)
 
     try:
         if args.compile_only or args.output:
-            if is_jam:
-                raise ValueError("Can't compile jam file")
+            if is_ir:
+                raise ValueError("Can't compile what is already compiled, duh")
             out_file = args.output and open(args.output, "wt")
             compile(source, out_file or sys.stdout, **compiler_options)
             exit(0)
-        if is_jam:
+        if is_ir:
             if not isinstance(source, str):
                 source = source.read()
             run_program = UrslaScript(source, tune=tune)
