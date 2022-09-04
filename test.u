@@ -1,5 +1,9 @@
 {
-  @ Stdlib | Natives
+  @
+  @ Stdlib
+  @
+
+  @ Stdlib | Built-ins
   :NIL
   :T:1=1
   :F:~T
@@ -17,33 +21,66 @@
   :get{ $\8b }
   :set{ $\8c }
   :copy{ $\8d }
-  @ End of Stdlib
+  :bisect{ $\8e }
   
+  @ Stdlib | Misc Constants
   :EMPTY_DATA:""
   :EMPTY_ARRAY:array(0)
+
+  @ Stdlib | Characters
+  :NL:0a
+  :TAB:09
+  :SPACE:20
+  :EXCLAMATION_MARK:21
+  :QUOTATION_MARK:22
+  :DOLLAR_SIGN:24
+  :PERCENT_SIGN:25
+  :AMPERSAND:26
+  :APOSTROPHE:27
+  :PAREN_L:28
+  :PAREN_R:29
+  :ASTERISK:2a
+  :PLUS_SIGN:2b
+  :COMMA:2c
+  :HYPHEN:2d
+  :SLASH:2f
+  :COLON:3a
+  :SEMICOLON:3b
+  :LT_SIGN:3c
+  :EQ_SIGN:3d
+  :GT_SIGN:3e
+  :QUESTION_MARK:3f
+  :AT_SIGN:40
+  :BACKSLASH:5c
+  :CARET:5e
+  :CURLY_BRACE_L:7b
+  :VERTICAL_BAR:7c
+  :CURLY_BRACE_R:7d
+  :TILDA:7e
   
-  :_build_char_map(char_map){
-    :c:7f
-    ?c>-1{
-      set(char_map,c,set(data(1),0,c))
-      :c:c-1
-    }^
-    $char_map
+  @ Stdlib | Results (ugly way to return multiple values)
+  :r0:NIL @ unused because it always gets returned on the stack
+  :r1:NIL
+  :r2:NIL
+  :result2(a,b){ :r1:b $a }
+  :result3(a,b,c){ :r1:b :r2:c $a }
+
+  @ Stdlib | Misc
+  :select(x,a,b){
+    ?x{ $a }:{ $b }
   }
-  :_char_map:_build_char_map(array(80))
-  :char(x){
-    $get(_char_map,x)
+  :default(x,def){
+    ?is(x,NIL){ $def }:{ $x }
   }
-  :_NL:0a
-  :_SPACE:20
-  :_TAB:09
-  :NL:char(_NL)
-  :SPACE:char(_SPACE)
-  :TAB:char(_TAB)
-  
-  :digit(x){
-    $get(_char_map,x+30)
+  :empty(x){
+    $is(x,NIL)|(len(x)=0)
   }
+  :assert(a){
+    ?a{ $NIL }
+    !"Assertion failed"
+  }
+
+  @ Stdlib | Integer
   :fp(i,f){
     $(i*10000)+f
   }
@@ -58,25 +95,80 @@
       :y:y/+a
       :n:n+1
     }^
-    :s:data(n)
+    :d:data(n)
     :i:n-1
     ?x{
-      set(s,i,(x%+a)+30)
+      set(d,i,(x%+a)+30)
       :x:x/+a
       :i:i-1
     }^
-    $s
+    $d
   }
+
+  @ Stdlib | Text
+  :pad(t,c,n){
+    :padded:data(n+len(t))
+    copy(padded,t,n,0,len(t))
+    ?n>0{
+      :n:n-1
+      set(padded,n,c)
+    }^
+    $padded
+  }
+  :_build_char_map(char_map){
+    :c:7f
+    ?c>-1{
+      set(char_map,c,set(data(1),0,c))
+      :c:c-1
+    }^
+    $char_map
+  }
+  :_char_map:_build_char_map(array(80))
+  :char(x){
+    $get(_char_map,x)
+  }
+  :digit(x){
+    $get(_char_map,x+30)
+  }
+  :_hex_digits:"0123456789abcdef"
+  :hex_digit(x){
+    $get(_hex_digits,x)
+  }
+  :parse_hex_digit(c){
+    :x:c-61
+    ?x<0{ $x+31 }
+    $x+0a
+  }
+  :is_digit(x){
+    $((x>2f)&(x<3a))
+  }
+  :is_digit_or_sign(x){
+    $((x>2f)&(x<3a))|(x=PLUS_SIGN)|(x=HYPHEN)
+  }
+  :is_hex_digit(x){
+    $((x>2f)&(x<3a))|((x>60)&(x<67))
+  }
+  :is_alpha(x){
+    $((x>40)&(x<5b))|((x>60)&(x<7b))
+  }
+  :is_word(x){
+    $((x>40)&(x<5b))|((x>60)&(x<7b))|((x>2f)&(x<3a))|(x=5f)
+  }
+  
+  @ Stdlib | Data
   :dchunk(d,i,n){
     $copy(data(n),d,0,i,n)
   }
   :dclone(d){
     $copy(data(len(d)),d,0,0,len(d))
   }
+  :dresize(d,n){
+    $copy(array(n),d,0,0,len(d))
+  }
   :dconcat(a,b){
     :c:data(len(a)+len(b))
-    $copy(c,a,0,0,len(a))
-    $copy(c,b,len(a),0,len(b))
+    copy(c,a,0,0,len(a))
+    copy(c,b,len(a),0,len(b))
     $c
   }
   :join(delimiter,datas){
@@ -103,59 +195,87 @@
     }^
     $new_str
   }
+  :joinlines(a){
+    $join(char(NL),a)
+  }
+
+  @ Stdlib | Array
   :achunk(a,i,n){
     $copy(array(n),a,0,i,n)
   }
   :aclone(a){
     $copy(array(len(a)),a,0,0,len(a))
   }
+  :aresize(a,n){
+    $copy(array(n),a,0,0,len(a))
+  }
   :aconcat(a,b){
     :c:array(len(a)+len(b))
-    $copy(c,a,0,0,len(a))
-    $copy(c,b,len(a),0,len(b))
+    copy(c,a,0,0,len(a))
+    copy(c,b,len(a),0,len(b))
     $c
   }
-  :flatten(arrays){
-    :n:len(arrays)
+  :flatten(a){
+    :n:len(a)
     :i:n-1
     ?i=0{ $EMPTY_ARRAY }
     :flattened_n:0
     ?i>-1{
-      :flattened_n:flattened_n+len(get(arrays,i))
+      :flattened_n:flattened_n+len(get(a,i))
       :i:i-1
     }^
     :flattened:array(flattened_n)
     :flattened_i:0 
     :i:0
     ?i<n{
-      :cur_array:get(arrays,i)
+      :cur_array:get(a,i)
       copy(flattened,cur_array,flattened_i,0,len(cur_array))
       :flattened_i:flattened_i+len(cur_array)
       :i:i+1
     }^
     $flattened 
   }
-  :sum(ints){
+
+  @ Stdlib | Data/Array
+  :assign(a,b){
+    $copy(a,b,0,0,len(a))
+  }
+  :count(a,i,j,x){
+    :n:0
+    ?i<j{
+      ?get(a,i)=x{
+        :n:n+1
+      }
+      :i:i+1
+    }^
+    $n
+  }
+  :sum(a){
     :x:0
-    :n:len(ints)-1
+    :n:len(a)-1
     ?n>-1{
-      :x:x+get(ints,n)
+      :x:x+get(a,n)
       :n:n-1
     }^
     $x
   }
-  :select(x,a,b){
-    ?x{ $a }:{ $b }
+  :find(a,i,j,x){
+    ?i<j{
+      ?get(a,i)=x{
+        $i
+      }
+      :i:i+1
+    }^
+    $-1
   }
-  :default(x,def){
-    ?is(x,NIL){ $def }:{ $x }
-  }
-  :empty(x){
-    $is(x,NIL)|(len(x)=0)
-  }
-  :assert(a){
-    ?a{ $NIL }
-    !"Assertion failed"
+  :find_reverse(a,i,j,x){
+    ?j>i{
+      :j:j-1
+      ?get(a,j)=x{
+        $j
+      }
+    }^
+    $-1
   }
 
   @ logical ops
@@ -316,6 +436,10 @@
   :some_data_copy:data(7)
   assert(copy(some_data_copy,some_data,0,0,7)=some_data)
   assert(copy(some_data_copy,some_data,0,0,7)=some_data)
+  :ordered_array:,2,3,10,50,55,80
+  assert(bisect(ordered_array,50)=3)
+  assert(bisect(ordered_array,4f)=3)
+  assert(bisect(ordered_array,51)=4)
   
   assert(get(char(+a),0)=+a)
   assert(itod(+2aaa)="10922")
@@ -349,7 +473,7 @@
   @ assert(match(digit(1),"1"))
   @ assert(match(digit(9),"9"))
   
-  out(NL)
+  out(char(NL))
   out("123456789helloworlddynamic <- EXPECTED")
-  out(NL)
+  out(char(NL))
 }

@@ -1,11 +1,10 @@
 #!/usr/local/bin/python3
 
 # TODO:
-# - add bsearch(), use to build associative array of symbols in compiler
 # - add b64(), decodeb64()
 # - change clamp() => min() max() :)~
 
-import sys, time, io, array
+import sys, time, io, array, bisect
 
 assert sys.byteorder == 'little' # sorry ;)
 
@@ -315,7 +314,7 @@ class VM(object):
             del os[operand_n:]
             os.append(err)
             return j
-        # REMINDER: write exec_index to fs[-1] before executing subroutine in func v
+        # Built-in functions
         def _is(i):
             os[-1] = -1 if os[-2] is os.pop() else 0
             return i + 1
@@ -365,6 +364,11 @@ class VM(object):
             for j in range(n):
                 dest[di+j] = src[si+j]
             return i + 1
+        def _bisect(i):
+            x, a = os.pop(), os.pop()
+            os.append(bisect.bisect_left(a, x))
+            return i + 1
+        # Compound operations 
         def _jump_func_direct(i):
             fs[-1] = i + 1 # advance from "g" to "{"
             fs.append(-1)
@@ -428,6 +432,7 @@ class VM(object):
         ops[0x8b] = _get
         ops[0x8c] = _set
         ops[0x8d] = _copy
+        ops[0x8e] = _bisect
         return ops
 
 class UrslaScript(object):
@@ -446,7 +451,11 @@ class UrslaScript(object):
         return UrslaScript(dest.getvalue(), **vm_options)
 
     def call(self, func_idx, *args):
-        return self.vm.call(self.exec_ops, self.vm.var_stack[0][func_idx], args, self.line_exec_indices)
+        return self.vm.call(
+            self.exec_ops,
+            self.vm.var_stack[0][func_idx],
+            args,
+            self.line_exec_indices)
         
     def execute(self):
         self.vm.execute(self.exec_ops, self.line_exec_indices)

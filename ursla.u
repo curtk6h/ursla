@@ -1,8 +1,5 @@
 {  
-  @
-  @ Exposed Functions
-  @
-
+  @ Entry Point Declarations
   :compile
 
   @
@@ -27,6 +24,7 @@
   :get{ $\8b }
   :set{ $\8c }
   :copy{ $\8d }
+  :bisect{ $\8e }
   
   @ Stdlib | Misc Constants
   :EMPTY_DATA:""
@@ -76,6 +74,13 @@
   }
   :default(x,def){
     ?is(x,NIL){ $def }:{ $x }
+  }
+  :empty(x){
+    $is(x,NIL)|(len(x)=0)
+  }
+  :assert(a){
+    ?a{ $NIL }
+    !"Assertion failed"
   }
 
   @ Stdlib | Integer
@@ -213,6 +218,26 @@
     copy(c,b,len(a),0,len(b))
     $c
   }
+  :flatten(a){
+    :n:len(a)
+    :i:n-1
+    ?i=0{ $EMPTY_ARRAY }
+    :flattened_n:0
+    ?i>-1{
+      :flattened_n:flattened_n+len(get(a,i))
+      :i:i-1
+    }^
+    :flattened:array(flattened_n)
+    :flattened_i:0 
+    :i:0
+    ?i<n{
+      :cur_array:get(a,i)
+      copy(flattened,cur_array,flattened_i,0,len(cur_array))
+      :flattened_i:flattened_i+len(cur_array)
+      :i:i+1
+    }^
+    $flattened 
+  }
 
   @ Stdlib | Data/Array
   :assign(a,b){
@@ -227,6 +252,15 @@
       :i:i+1
     }^
     $n
+  }
+  :sum(a){
+    :x:0
+    :n:len(a)-1
+    ?n>-1{
+      :x:x+get(a,n)
+      :n:n-1
+    }^
+    $x
   }
   :find(a,i,j,x){
     ?i<j{
