@@ -307,12 +307,13 @@ class VM(object):
             es.pop()
             return i + 1
         def _throw(i):
-            gv[0] = os.pop()
+            err = os.pop()
             if not es:
-                raise VMError(VM.vm_object_to_str(gv[0]))
+                raise VMError(VM.vm_object_to_str(err))
             frame_n, j, operand_n = es.pop()
             del fs[frame_n:]
             del os[operand_n:]
+            os.append(err)
             return j
         # REMINDER: write exec_index to fs[-1] before executing subroutine in func v
         def _is(i):
@@ -445,7 +446,7 @@ class UrslaScript(object):
         return UrslaScript(dest.getvalue(), **vm_options)
 
     def call(self, func_idx, *args):
-        return self.vm.call(self.exec_ops, self.vm.var_stack[0][0][func_idx], args, self.line_exec_indices)
+        return self.vm.call(self.exec_ops, self.vm.var_stack[0][func_idx], args, self.line_exec_indices)
         
     def execute(self):
         self.vm.execute(self.exec_ops, self.line_exec_indices)

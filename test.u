@@ -1,6 +1,5 @@
 {
   @ Stdlib | Natives
-  :ERR @ required!
   :NIL
   :T:1=1
   :F:~T
@@ -261,13 +260,13 @@
   set_global()
   assert(a_global=789)
   
-  @ try/catch
+  @ try
   ?{
     ?{
-      !55
+      !55  @ throw
       assert(0)
     }:{
-      :ef:ERR
+      :ef! @ catch (don't forget this!)
     }
     assert(ef=55)
   }:{
@@ -353,6 +352,4 @@
   out(NL)
   out("123456789helloworlddynamic <- EXPECTED")
   out(NL)
-
-  :ERR:EMPTY_ARRAY @ required
 }

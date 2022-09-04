@@ -1,10 +1,15 @@
-{
+{  
+  @
+  @ Exposed Functions
+  @
+
+  :compile
+
   @
   @ Stdlib
   @
 
   @ Stdlib | Built-ins
-  :ERR @ required!
   :NIL
   :T:1=1
   :F:~T
@@ -638,7 +643,7 @@
       :i:Compiler_parse_symbol(comp,code,i+1)
       :symbol_id:r1
       :c:get(code,i)
-      ?~((c=COLON)|(c=PAREN_L)|(c=CURLY_BRACE_L)){
+      ?~((c=COLON)|(c=EXCLAMATION_MARK)|(c=PAREN_L)|(c=CURLY_BRACE_L)){
         @ variable declaration
         :lv:Compiler_lv(comp)
         :ln:Vector_n(lv)
@@ -666,6 +671,9 @@
         ?c=COLON{
           @ simple assignment
           :i:Compiler_c_expr(comp,code,i+1)
+        }:?c=EXCLAMATION_MARK{
+          @ pop from stack (only practical use for this is err)
+          :i:i+1
         }:{
           @ function definition
           :vs:Compiler_vs(comp)
@@ -743,6 +751,4 @@
   :compile(debug){
     $out(Compiler_jam_for_output(Compiler_compile(Compiler(debug),in())))
   }
-
-  :ERR:,compile
 }
