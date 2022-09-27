@@ -9,19 +9,19 @@
   :F:~T
   :is{ $\80 }
   :weak{ $\81 }
-  :time{ $\82 }
-  :in{ $\83 }
-  :out{ $\84 }
-  :pack{ $\85 }
-  :unpack{ $\86 }
-  :clamp{ $\87 }
-  :data{ $\88 }
-  :array{ $\89 }
-  :len{ $\8a }
-  :get{ $\8b }
-  :set{ $\8c }
-  :copy{ $\8d }
-  :bisect{ $\8e }
+  :hash{ $\82 }
+  :time{ $\83 }
+  :in{ $\84 }
+  :out{ $\85 }
+  :pack{ $\86 }
+  :unpack{ $\87 }
+  :clamp{ $\88 }
+  :data{ $\89 }
+  :array{ $\8a }
+  :len{ $\8b }
+  :get{ $\8c }
+  :set{ $\8d }
+  :copy{ $\8e }
   
   @ Stdlib | Misc Constants
   :EMPTY_DATA:""
@@ -240,6 +240,22 @@
   :assign(a,b){
     $copy(a,b,0,0,len(a))
   }
+  :fill(a,i,j,x){
+    :n:0
+    ?i<j{
+      set(a,i,x)
+      :i:i+1
+    }^
+    $a
+  }
+  :sum(a,i,j){
+    :x:0
+    ?i<j{
+      :x:x+get(a,i)
+      :i:i+1
+    }^
+    $x
+  }
   :count(a,i,j,x){
     :n:0
     ?i<j{
@@ -249,15 +265,6 @@
       :i:i+1
     }^
     $n
-  }
-  :sum(a){
-    :x:0
-    :n:len(a)-1
-    ?n>-1{
-      :x:x+get(a,n)
-      :n:n-1
-    }^
-    $x
   }
   :find(a,i,j,x){
     ?i<j{
@@ -276,6 +283,58 @@
       }
     }^
     $-1
+  }
+
+  @ Stdlib | Vector
+  :Vector_v(vec){ $get(vec,0) }
+  :Vector_n(vec){ $get(vec,1) }
+  :Vector_set_v(vec,v){ $set(vec,0,v) }
+  :Vector_set_n(vec,n){ $set(vec,1,n) }
+  :Vector_capacity(vec){ $len(get(vec,0)) }
+  :Vector_set_capacity(vec,capacity){
+    $set(vec,0,aresize(get(vec,0),capacity))
+  }
+  :Vector_get(vec,i){
+    $get(get(vec,0),i)
+  }
+  :Vector_set(vec,i,x){
+    set(get(vec,0),i,x)
+    $vec
+  }
+  :Vector_last(vec){
+    $Vector_get(vec,Vector_n(vec)-1)
+  }
+  :Vector_pop(vec){
+    :i:Vector_n(vec)-1
+    :x:Vector_get(vec,i)
+    Vector_set_n(vec,i)
+    $x
+  }
+  :Vector_resize(vec,n){
+    ?~(n<Vector_capacity(vec)){
+      :capacity:1
+      ?capacity<n{
+        :capacity:capacity*2
+      }^
+      Vector_set_capacity(vec,capacity)
+    }
+    Vector_set_n(vec,n)
+    $vec
+  }
+  :Vector_append(vec,x){
+    :v:Vector_v(vec)
+    :i:Vector_n(vec)
+    Vector_resize(vec,i+1)
+    Vector_set(vec,i,x)
+    $vec
+  }
+  :Vector_init(vec,capacity){
+    Vector_set_v(vec,array(capacity))
+    Vector_set_n(vec,0)
+    $vec
+  }
+  :Vector(capacity){
+    $Vector_init(array(2),capacity)
   }
 
   @ logical ops
@@ -436,33 +495,19 @@
   :some_data_copy:data(7)
   assert(copy(some_data_copy,some_data,0,0,7)=some_data)
   assert(copy(some_data_copy,some_data,0,0,7)=some_data)
-  :ordered_array:,2,3,10,50,55,80
-  assert(bisect(ordered_array,50)=3)
-  assert(bisect(ordered_array,4f)=3)
-  assert(bisect(ordered_array,51)=4)
-  
+
   assert(get(char(+a),0)=+a)
   assert(itod(+2aaa)="10922")
   assert(itod(0)="0")
   assert(dchunk("foobar",2,3)="oba")
   assert(join("***",(,"a","B","c"))="a***B***c")
-  assert(sum(,1,2,3)=6)
+  assert(sum((,1,2,3),0,3)=6)
   assert(select(F,1,0)=0)
   assert(select(T,1,0)=1)
   assert(default(0,9)=0)
   assert(default(1,9)=1)
   assert(default(NIL,9)=9)
   assert(flatten(,(,0),(,1,2,3),(,4,5,6,7,8,9))=(,0,1,2,3,4,5,6,7,8,9))
-
-  @ pipe
-  set(dynamic_test_array,0,69)
-  set(dynamic_test_array,1,2)
-  set(dynamic_test_array,2,4)
-  set(dynamic_test_array,3,6)
-  assert(get(dynamic_test_array,0)=69)
-  assert(get(dynamic_test_array,1)=2)
-  assert(get(dynamic_test_array,2)=4)
-  assert(get(dynamic_test_array,3)=6)
   
   @ assert(match(char(7e),"~"))
   @ assert(sfirst("abc",0,"a")=0)

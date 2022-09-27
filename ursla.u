@@ -12,19 +12,19 @@
   :F:~T
   :is{ $\80 }
   :weak{ $\81 }
-  :time{ $\82 }
-  :in{ $\83 }
-  :out{ $\84 }
-  :pack{ $\85 }
-  :unpack{ $\86 }
-  :clamp{ $\87 }
-  :data{ $\88 }
-  :array{ $\89 }
-  :len{ $\8a }
-  :get{ $\8b }
-  :set{ $\8c }
-  :copy{ $\8d }
-  :bisect{ $\8e }
+  :hash{ $\82 }
+  :time{ $\83 }
+  :in{ $\84 }
+  :out{ $\85 }
+  :pack{ $\86 }
+  :unpack{ $\87 }
+  :clamp{ $\88 }
+  :data{ $\89 }
+  :array{ $\8a }
+  :len{ $\8b }
+  :get{ $\8c }
+  :set{ $\8d }
+  :copy{ $\8e }
   
   @ Stdlib | Misc Constants
   :EMPTY_DATA:""

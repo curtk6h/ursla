@@ -198,7 +198,7 @@ class VM(object):
         if isinstance(value, bytearray):
             return value.decode("ascii")
         elif isinstance(value, list):
-            return ''.join(VM.vm_object_to_str(value))
+            return '[{}]'.format(','.join(VM.vm_object_to_str(x) for x in value))
         elif value is NIL:
             return ''
         else:
@@ -320,6 +320,9 @@ class VM(object):
             return i + 1
         def _weak(i):
             return i + 1
+        def _hash(i):
+            os[-1] = hash(os[-1])
+            return i + 1
         def _time(i):
             os.append(uint16(round((time.time()-self.start_time)*1000)))
             return i + 1
@@ -359,14 +362,11 @@ class VM(object):
             a[uint16(j)] = x
             return i + 1
         def _copy(i):
-            n, si, di, src = os.pop(), os.pop(), os.pop(), os.pop()
+            n, si, di = os.pop(), os.pop(), os.pop()
+            src = os.pop()[si:si+n]
             dest = os[-1]
             for j in range(n):
-                dest[di+j] = src[si+j]
-            return i + 1
-        def _bisect(i):
-            x, a = os.pop(), os.pop()
-            os.append(bisect.bisect_left(a, x))
+                dest[di+j] = src[j]
             return i + 1
         # Compound operations 
         def _jump_func_direct(i):
@@ -418,21 +418,23 @@ class VM(object):
         ops[0x11] = _increment_local
         ops[0x12] = _decrement_local
         ops[0x13] = _get_two_locals
+
         ops[0x80] = _is
         ops[0x81] = _weak
-        ops[0x82] = _time
-        ops[0x83] = _in
-        ops[0x84] = _out
-        ops[0x85] = _pack
-        ops[0x86] = _unpack
-        ops[0x87] = _clamp
-        ops[0x88] = _data
-        ops[0x89] = _array
-        ops[0x8a] = _len
-        ops[0x8b] = _get
-        ops[0x8c] = _set
-        ops[0x8d] = _copy
-        ops[0x8e] = _bisect
+        ops[0x82] = _hash
+        ops[0x83] = _time
+        ops[0x84] = _in
+        ops[0x85] = _out
+        ops[0x86] = _pack
+        ops[0x87] = _unpack
+        ops[0x88] = _clamp
+        ops[0x89] = _data
+        ops[0x8a] = _array
+        ops[0x8b] = _len
+        ops[0x8c] = _get
+        ops[0x8d] = _set
+        ops[0x8e] = _copy
+
         return ops
 
 class UrslaScript(object):
