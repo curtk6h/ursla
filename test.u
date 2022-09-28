@@ -553,6 +553,8 @@
   assert(lookup(test_map,"a")=1)
   assert(lookup(test_map,"b")=2)
   assert(lookup(test_map,"c")=3)
+  put(test_map,"c",4)
+  assert(lookup(test_map,"c")=4)
 
   :sparse_test_map:array(100)
   put(sparse_test_map,"b",2)
