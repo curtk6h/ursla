@@ -235,6 +235,43 @@
     }^
     $flattened 
   }
+  :_lookup_index(a,k){
+    :n:len(a)
+    :i:hash(k)%n
+    :j:i+n
+    ?i<j{
+      :x:get(a,i%n)
+      ?x=NIL{
+        $i%n
+      }
+      ?get(x,0)=k{
+        $i%n
+      }
+      :i:i+1
+    }^
+    $-1 @ out of free slots
+  }
+  :put(a,k,v){
+    :i:_lookup_index(a,k)
+    :n:len(a)
+    :x:get(a,i)
+    ?x=NIL{
+      set(a,i,(,k,v))
+    }:{
+      set(x,1,v)
+    }
+    $a
+  }
+  :lookup(a,k){
+    :i:_lookup_index(a,k)
+    ?i>-1{
+      :x:get(a,i)
+      ?~(x=NIL){
+        $get(x,1)
+      }
+    }
+    $NIL
+  }
 
   @ Stdlib | Data/Array
   :assign(a,b){
@@ -508,6 +545,22 @@
   assert(default(1,9)=1)
   assert(default(NIL,9)=9)
   assert(flatten(,(,0),(,1,2,3),(,4,5,6,7,8,9))=(,0,1,2,3,4,5,6,7,8,9))
+
+  :test_map:array(3)
+  put(test_map,"b",2)
+  put(test_map,"a",1)
+  put(test_map,"c",3)
+  assert(lookup(test_map,"a")=1)
+  assert(lookup(test_map,"b")=2)
+  assert(lookup(test_map,"c")=3)
+
+  :sparse_test_map:array(100)
+  put(sparse_test_map,"b",2)
+  put(sparse_test_map,"a",1)
+  put(sparse_test_map,"c",3)
+  assert(lookup(sparse_test_map,"a")=1)
+  assert(lookup(sparse_test_map,"b")=2)
+  assert(lookup(sparse_test_map,"c")=3)
   
   @ assert(match(char(7e),"~"))
   @ assert(sfirst("abc",0,"a")=0)

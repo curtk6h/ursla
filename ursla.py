@@ -321,7 +321,7 @@ class VM(object):
         def _weak(i):
             return i + 1
         def _hash(i):
-            os[-1] = hash(os[-1])
+            os[-1] = hash(VM.vm_object_to_str(os[-1]))
             return i + 1
         def _time(i):
             os.append(uint16(round((time.time()-self.start_time)*1000)))
@@ -418,7 +418,6 @@ class VM(object):
         ops[0x11] = _increment_local
         ops[0x12] = _decrement_local
         ops[0x13] = _get_two_locals
-
         ops[0x80] = _is
         ops[0x81] = _weak
         ops[0x82] = _hash
@@ -434,7 +433,6 @@ class VM(object):
         ops[0x8c] = _get
         ops[0x8d] = _set
         ops[0x8e] = _copy
-
         return ops
 
 class UrslaScript(object):

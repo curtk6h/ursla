@@ -238,6 +238,43 @@
     }^
     $flattened 
   }
+  :_lookup_index(a,k){
+    :n:len(a)
+    :i:hash(k)%n
+    :j:i+n
+    ?i<j{
+      :x:get(a,i%n)
+      ?x=NIL{
+        $i%n
+      }
+      ?get(x,0)=k{
+        $i%n
+      }
+      :i:i+1
+    }^
+    $-1
+  }
+  :put(a,k,v){
+    :i:_lookup_index(a,k)
+    :n:len(a)
+    :x:get(a,i)
+    ?x=NIL{
+      set(a,i,(,k,v))
+    }:{
+      set(x,1,v)
+    }
+    $a
+  }
+  :lookup(a,k){
+    :i:_lookup_index(a,k)
+    ?i>-1{
+      :x:get(a,i)
+      ?~(x=NIL){
+        $get(x,1)
+      }
+    }
+    $NIL
+  }
 
   @ Stdlib | Data/Array
   :assign(a,b){
