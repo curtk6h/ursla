@@ -272,6 +272,18 @@
     }
     $NIL
   }
+  :count_kvs(a){
+    :c:0
+    :i:0
+    :n:len(a)
+    ?i<n{
+      ?get(a,i)=NIL{
+        :c:c+1
+      }
+      :i:i+1
+    }^
+    $n-c
+  }
 
   @ Stdlib | Data/Array
   :assign(a,b){
@@ -563,6 +575,9 @@
   assert(lookup(sparse_test_map,"a")=1)
   assert(lookup(sparse_test_map,"b")=2)
   assert(lookup(sparse_test_map,"c")=3)
+  assert(count_kvs(sparse_test_map)=3)
+  put(sparse_test_map,"d",100)
+  assert(count_kvs(sparse_test_map)=4)
   
   @ assert(match(char(7e),"~"))
   @ assert(sfirst("abc",0,"a")=0)
