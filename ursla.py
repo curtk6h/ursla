@@ -1,9 +1,5 @@
 #!/usr/local/bin/python3
 
-# TODO:
-# - change clamp() => min() max() :)~
-# - add b64(), decodeb64()
-
 import sys, time, io, array
 
 assert sys.byteorder == 'little' # sorry ;)

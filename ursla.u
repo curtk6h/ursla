@@ -430,10 +430,9 @@
   :Compiler_jam_idx(comp){ $get(comp,1) }
   :Compiler_set_jam_idx(comp,i){ $set(comp,1,i) }
   :Compiler_debug(comp){ $get(comp,2) }
-  :Compiler_symbols(comp){ $get(comp,3) }
-  :Compiler_vs(comp){ $get(comp,4) }
-  :Compiler_gv(comp){ $Vector_get(get(comp,4),0) }
-  :Compiler_lv(comp){ $Vector_last(get(comp,4)) }
+  :Compiler_vs(comp){ $get(comp,3) }
+  :Compiler_gv(comp){ $Vector_get(get(comp,3),0) }
+  :Compiler_lv(comp){ $Vector_last(get(comp,3)) }
 
   :Compiler_jam_for_output(comp){
     $dchunk(Compiler_jam(comp),0,Compiler_jam_idx(comp))
@@ -826,12 +825,11 @@
     set(comp,0,data(+7fff)) @ NOTE: biggest integer there is atm :)
     set(comp,1,0)
     set(comp,2,debug)
-    set(comp,3,Vector(1))
-    set(comp,4,Vector_append(Vector(1),array(100*4)))
+    set(comp,3,Vector_append(Vector(1),array(100*4)))
     $comp
   }
   :Compiler(debug){
-    $Compiler_init(array(5),debug)
+    $Compiler_init(array(4),debug)
   }
 
   @
