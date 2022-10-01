@@ -15,13 +15,14 @@
   :out{ $\85 }
   :pack{ $\86 }
   :unpack{ $\87 }
-  :clamp{ $\88 }
-  :data{ $\89 }
-  :array{ $\8a }
-  :len{ $\8b }
-  :get{ $\8c }
-  :set{ $\8d }
-  :copy{ $\8e }
+  :min{ $\88 }
+  :max{ $\89 }
+  :data{ $\8a }
+  :array{ $\8b }
+  :len{ $\8c }
+  :get{ $\8d }
+  :set{ $\8e }
+  :copy{ $\8f }
   
   @ Stdlib | Misc Constants
   :EMPTY_DATA:""
@@ -103,6 +104,9 @@
       :i:i-1
     }^
     $d
+  }
+  :clamp(x,l,h){
+    $min(max(x,l),h)
   }
 
   @ Stdlib | Text
@@ -236,6 +240,7 @@
     $flattened 
   }
   :_lookup_index(a,k){
+    @ TODO: replace built-in hash() with this?
     :n:len(a)
     :i:hash(k)%n
     :j:i+n
@@ -525,6 +530,8 @@
   :test_str_clone:"a test string"
   assert(~is(test_str,test_str_clone))
   assert(is(weak(test_str),test_str))
+  assert(min(100,50)=50)
+  assert(max(100,50)=100)
   assert(clamp(2,1,3)=2)
   assert(clamp(4,1,3)=3)
   assert(clamp(0,1,3)=1)

@@ -1,10 +1,10 @@
 #!/usr/local/bin/python3
 
 # TODO:
-# - add b64(), decodeb64()
 # - change clamp() => min() max() :)~
+# - add b64(), decodeb64()
 
-import sys, time, io, array, bisect
+import sys, time, io, array
 
 assert sys.byteorder == 'little' # sorry ;)
 
@@ -340,9 +340,11 @@ class VM(object):
             mask = os.pop()
             os[-1] = ((uint16(os[-1])&mask)>>ffb(mask))
             return i + 1
-        def _clamp(i):
-            max_, min_ = os.pop(), os.pop()
-            os[-1] = min(max(os[-1], min_), max_)
+        def _min(i):
+            os.append(min(os.pop(), os.pop()))
+            return i + 1
+        def _max(i):
+            os.append(max(os.pop(), os.pop()))
             return i + 1
         def _data(i):
             os[-1] = bytearray(os[-1])
@@ -426,13 +428,14 @@ class VM(object):
         ops[0x85] = _out
         ops[0x86] = _pack
         ops[0x87] = _unpack
-        ops[0x88] = _clamp
-        ops[0x89] = _data
-        ops[0x8a] = _array
-        ops[0x8b] = _len
-        ops[0x8c] = _get
-        ops[0x8d] = _set
-        ops[0x8e] = _copy
+        ops[0x88] = _min
+        ops[0x89] = _max
+        ops[0x8a] = _data
+        ops[0x8b] = _array
+        ops[0x8c] = _len
+        ops[0x8d] = _get
+        ops[0x8e] = _set
+        ops[0x8f] = _copy
         return ops
 
 class UrslaScript(object):

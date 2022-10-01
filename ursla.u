@@ -18,13 +18,14 @@
   :out{ $\85 }
   :pack{ $\86 }
   :unpack{ $\87 }
-  :clamp{ $\88 }
-  :data{ $\89 }
-  :array{ $\8a }
-  :len{ $\8b }
-  :get{ $\8c }
-  :set{ $\8d }
-  :copy{ $\8e }
+  :min{ $\88 }
+  :max{ $\89 }
+  :data{ $\8a }
+  :array{ $\8b }
+  :len{ $\8c }
+  :get{ $\8d }
+  :set{ $\8e }
+  :copy{ $\8f }
   
   @ Stdlib | Misc Constants
   :EMPTY_DATA:""
@@ -106,6 +107,9 @@
       :i:i-1
     }^
     $d
+  }
+  :clamp(x,l,h){
+    $min(max(x,l),h)
   }
 
   @ Stdlib | Text
@@ -239,6 +243,7 @@
     $flattened 
   }
   :_lookup_index(a,k){
+    @ TODO: replace built-in hash() with this?
     :n:len(a)
     :i:hash(k)%n
     :j:i+n
@@ -252,7 +257,7 @@
       }
       :i:i+1
     }^
-    $-1
+    $-1 @ out of free slots
   }
   :put(a,k,v){
     :i:_lookup_index(a,k)
@@ -292,6 +297,22 @@
   :assign(a,b){
     $copy(a,b,0,0,len(a))
   }
+  :fill(a,i,j,x){
+    :n:0
+    ?i<j{
+      set(a,i,x)
+      :i:i+1
+    }^
+    $a
+  }
+  :sum(a,i,j){
+    :x:0
+    ?i<j{
+      :x:x+get(a,i)
+      :i:i+1
+    }^
+    $x
+  }
   :count(a,i,j,x){
     :n:0
     ?i<j{
@@ -301,15 +322,6 @@
       :i:i+1
     }^
     $n
-  }
-  :sum(a){
-    :x:0
-    :n:len(a)-1
-    ?n>-1{
-      :x:x+get(a,n)
-      :n:n-1
-    }^
-    $x
   }
   :find(a,i,j,x){
     ?i<j{
@@ -329,13 +341,13 @@
     }^
     $-1
   }
-  
+
   @ Stdlib | Vector
   :Vector_v(vec){ $get(vec,0) }
   :Vector_n(vec){ $get(vec,1) }
-  :Vector_capacity(vec){ $len(get(vec,0)) }
   :Vector_set_v(vec,v){ $set(vec,0,v) }
   :Vector_set_n(vec,n){ $set(vec,1,n) }
+  :Vector_capacity(vec){ $len(get(vec,0)) }
   :Vector_set_capacity(vec,capacity){
     $set(vec,0,aresize(get(vec,0),capacity))
   }
@@ -355,14 +367,21 @@
     Vector_set_n(vec,i)
     $x
   }
+  :Vector_resize(vec,n){
+    ?~(n<Vector_capacity(vec)){
+      :capacity:1
+      ?capacity<n{
+        :capacity:capacity*2
+      }^
+      Vector_set_capacity(vec,capacity)
+    }
+    Vector_set_n(vec,n)
+    $vec
+  }
   :Vector_append(vec,x){
     :v:Vector_v(vec)
     :i:Vector_n(vec)
-    :capacity:len(v)
-    ?i=capacity{
-      Vector_set_v(vec,aresize(v,capacity*2))
-    }
-    Vector_set_n(vec,i+1)
+    Vector_resize(vec,i+1)
     Vector_set(vec,i,x)
     $vec
   }
@@ -531,16 +550,7 @@
     ?is_word(get(code,i+n)){
       :n:n+1
     }^
-    :symbol:dchunk(code,i,n)
-    :symbols:Compiler_symbols(comp)
-    :symbols_v:Vector_v(symbols)
-    :symbols_n:Vector_n(symbols)
-    :id:find(symbols_v,0,symbols_n,symbol)
-    ?id=-1{
-      :id:symbols_n
-      Vector_append(symbols,symbol)
-    }
-    $result2(i+n,id)
+    $result2(i+n,dchunk(code,i,n))
   }
   :Compiler_parse_eol(comp,code,i){
     :c:get(code,i)
@@ -577,20 +587,18 @@
     @ variable / function call
     ?is_word(c){
       :i:Compiler_parse_symbol(comp,code,i)
-      :symbol_id:r1
+      :symbol:r1
       @ local
       ?Vector_n(Compiler_vs(comp))>1{
-        :lv:Compiler_lv(comp)
-        :li:find(Vector_v(lv),0,Vector_n(lv),symbol_id)
-        ?li>-1{
+        :li:lookup(Compiler_lv(comp),symbol)
+        ?~(li=NIL){
           Compiler_append_op_w_byte(comp,GET_LOCAL,li)
           $i
         }
       }
       @ global
-      :gv:Compiler_gv(comp)
-      :gi:find(Vector_v(gv),0,Vector_n(gv),symbol_id)
-      ?gi>-1{
+      :gi:lookup(Compiler_gv(comp),symbol)
+      ?~(gi=NIL){
         Compiler_append_op_w_short(comp,GET_GLOBAL,gi)
         $i
       }
@@ -671,7 +679,7 @@
       :i:i+1
       ?~(get(code,i)=PAREN_R){
         :i:Compiler_parse_symbol(comp,code,i) 
-        Vector_append(lv,r1)
+        put(lv,r1,count_kvs(lv))
         ?get(code,i)=COMMA{
           :i:i+1
         }
@@ -724,31 +732,29 @@
     }:?c=COLON{
       @ function or variable assignment
       :i:Compiler_parse_symbol(comp,code,i+1)
-      :symbol_id:r1
+      :symbol:r1
       :c:get(code,i)
       ?~((c=COLON)|(c=EXCLAMATION_MARK)|(c=PAREN_L)|(c=CURLY_BRACE_L)){
         @ variable declaration
         :lv:Compiler_lv(comp)
-        :ln:Vector_n(lv)
-        :li:find(Vector_v(lv),0,ln,symbol_id)
-        ?li=-1{
-          :li:ln
-          Vector_append(lv,symbol_id)
+        :li:lookup(lv,symbol)
+        ?li=NIL{
+          :li:count_kvs(lv)
+          put(lv,symbol,li)
         }
       }:{
+        :gi:NIL
         :lv:Compiler_lv(comp)
-        :ln:Vector_n(lv)
-        :gi:-1
-        :li:find(Vector_v(lv),0,ln,symbol_id)
-        ?li=-1{
+        :li:lookup(lv,symbol)
+        ?li=NIL{
           :gv:Compiler_gv(comp)
-          :gi:find(Vector_v(gv),0,Vector_n(gv),symbol_id)
-          ?gi=-1{
-            :li:ln
-            Vector_append(lv,symbol_id)
+          :gi:lookup(gv,symbol)
+          ?gi=NIL{
+            :li:count_kvs(lv)
+            put(lv,symbol,li)
           }
         }
-        ?(gi=-1)&(Vector_n(Compiler_vs(comp))=1){
+        ?(gi=NIL)&(Vector_n(Compiler_vs(comp))=1){
           :gi:li
         }
         ?c=COLON{
@@ -762,7 +768,7 @@
           :vs:Compiler_vs(comp)
           :top:Compiler_jam_idx(comp)
           Compiler_append_op_w_addr(comp,JUMP,0)
-          :fv:Vector(+ff)
+          :fv:array(100)
           Vector_append(vs,fv)
           :i:Compiler_c_args(comp,code,i)
           :i:Compiler_c_code_block(comp,code,i)
@@ -770,10 +776,10 @@
           Compiler_encode_short(comp,top+1,Compiler_jam_idx(comp))
           Compiler_append_op_w_addr(comp,LOAD_FUNC,top+5)
         }
-        ?gi>-1{
-          Compiler_append_op_w_short(comp,SET_GLOBAL,gi)
-        }:{
+        ?gi=NIL{
           Compiler_append_op_w_byte(comp,SET_LOCAL,li)
+        }:{
+          Compiler_append_op_w_short(comp,SET_GLOBAL,gi)
         }
       }
     }:?is_word(c){
@@ -817,11 +823,11 @@
 
   @ Compiler | Initialization / Allocation
   :Compiler_init(comp,debug){
-    set(comp,0,data(+7fff))
+    set(comp,0,data(+7fff)) @ NOTE: biggest integer there is atm :)
     set(comp,1,0)
     set(comp,2,debug)
     set(comp,3,Vector(1))
-    set(comp,4,Vector_append(Vector(1),Vector(100)))
+    set(comp,4,Vector_append(Vector(1),array(100*4)))
     $comp
   }
   :Compiler(debug){
