@@ -1,6 +1,6 @@
 #!/usr/local/bin/python3
 
-import sys, time, io, array
+import sys, time, io, array, base64
 
 assert sys.byteorder == 'little' # sorry ;)
 
@@ -366,6 +366,28 @@ class VM(object):
             for j in range(n):
                 dest[di+j] = src[j]
             return i + 1
+        def _fin(i):
+            filename = os[-1].decode("ascii")
+            os.append(open(filename, "rb").read())
+            return i + 1
+        def _fout(i):
+            data, filename = os.pop(), os[-1].decode("ascii")
+            open(filename, "wb").write(data)
+            return i + 1
+        def _load(i):
+            key = os[-1].decode("ascii")
+            os.append(open(key+".sav", "rb").read())
+            return i + 1
+        def _save(i):
+            data, key = os.pop(), os[-1].decode("ascii")
+            open(key+".sav", "wb").write(data)
+            return i + 1
+        def _b64(i):
+            os[-1] = base64.b64encode(os[-1])
+            return i + 1
+        def _b64decode(i):
+            os[-1] = bytearray(base64.b64decode(os[-1]))
+            return i + 1
         # Compound operations 
         def _jump_func_direct(i):
             fs[-1] = i + 1 # advance from "g" to "{"
@@ -432,6 +454,12 @@ class VM(object):
         ops[0x8d] = _get
         ops[0x8e] = _set
         ops[0x8f] = _copy
+        ops[0x90] = _fin
+        ops[0x91] = _fout
+        ops[0x92] = _load
+        ops[0x93] = _save
+        ops[0x94] = _b64
+        ops[0x95] = _b64decode
         return ops
 
 class UrslaScript(object):

@@ -23,7 +23,13 @@
   :get{ $\8d }
   :set{ $\8e }
   :copy{ $\8f }
-  
+  :fin{ $\90 }
+  :fout{ $\91 }
+  :load{ $\92 }
+  :save{ $\93 }
+  :b64{ $\94 }
+  :b64decode{ $\95 }
+
   @ Stdlib | Misc Constants
   :EMPTY_DATA:""
   :EMPTY_ARRAY:array(0)
@@ -585,6 +591,10 @@
   assert(count_kvs(sparse_test_map)=3)
   put(sparse_test_map,"d",100)
   assert(count_kvs(sparse_test_map)=4)
+
+  assert(load(save("test","save worked!"))="save worked!")
+  
+  assert(`test.txt`="helloworld")
   
   @ assert(match(char(7e),"~"))
   @ assert(sfirst("abc",0,"a")=0)

@@ -1,4 +1,4 @@
-{  
+{
   @ Entry Point Declarations
   :compile
 
@@ -26,6 +26,12 @@
   :get{ $\8d }
   :set{ $\8e }
   :copy{ $\8f }
+  :fin{ $\90 }
+  :fout{ $\91 }
+  :load{ $\92 }
+  :save{ $\93 }
+  :b64{ $\94 }
+  :b64decode{ $\95 }
   
   @ Stdlib | Misc Constants
   :EMPTY_DATA:""
@@ -57,6 +63,7 @@
   :AT_SIGN:40
   :BACKSLASH:5c
   :CARET:5e
+  :BACKTICK:60
   :CURLY_BRACE_L:7b
   :VERTICAL_BAR:7c
   :CURLY_BRACE_R:7d
@@ -470,7 +477,7 @@
     :i:Compiler_encode_short(comp,i+1,x)
     $Compiler_set_jam_idx(comp,i)
   }
-  :Compiler_append_data(comp,d,i,j){
+  :Compiler_append_text(comp,d,i,j){
     :jam:Compiler_jam(comp)
     :jam_i:Compiler_jam_idx(comp) 
     ?i<j{
@@ -580,7 +587,7 @@
         :j:j+1
       }^
       Compiler_append_op_w_short(comp,LOAD_STR,j-i)
-      Compiler_append_data(comp,code,i,j)
+      Compiler_append_text(comp,code,i,j)
       $j+1
     }
     @ variable / function call
@@ -617,6 +624,20 @@
       }^
       Compiler_append_op_w_short(comp,LOAD_ARRAY,n)
       $i
+    }
+    @ data
+    ?c=BACKTICK{
+      :i:i+1
+      :c:get(code,i)
+      :j:i
+      ?~(get(code,j)=BACKTICK){
+        :j:j+1
+      }^
+      :text:b64(fin(dchunk(code,i,j-i)))
+      Compiler_append_op_w_short(comp,LOAD_STR,len(text))
+      Compiler_append_text(comp,text,0,len(text))
+      Compiler_append_op_w_byte(comp,OP_BY_CODE,95)
+      $j+1
     }
     @ operation-by-code (for defining built-ins)
     ?c=BACKSLASH{
