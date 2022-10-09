@@ -1,862 +1,862 @@
-{
-  @ Entry Point Declarations
-  :compile
+@ Entry Point Declarations
+:compile
 
-  @
-  @ Stdlib
-  @
+@
+@ Stdlib
+@
 
-  @ Stdlib | Built-ins
-  :NIL
-  :T:1=1
-  :F:~T
-  :is{ $\80 }
-  :weak{ $\81 }
-  :hash{ $\82 }
-  :time{ $\83 }
-  :in{ $\84 }
-  :out{ $\85 }
-  :pack{ $\86 }
-  :unpack{ $\87 }
-  :min{ $\88 }
-  :max{ $\89 }
-  :data{ $\8a }
-  :array{ $\8b }
-  :len{ $\8c }
-  :get{ $\8d }
-  :set{ $\8e }
-  :copy{ $\8f }
-  :fin{ $\90 }
-  :fout{ $\91 }
-  :load{ $\92 }
-  :save{ $\93 }
-  :b64{ $\94 }
-  :b64decode{ $\95 }
-  
-  @ Stdlib | Misc Constants
-  :EMPTY_DATA:""
-  :EMPTY_ARRAY:array(0)
+@ Stdlib | Built-ins
+:NIL
+:T:1=1
+:F:~T
+:is{ $\80 }
+:weak{ $\81 }
+:hash{ $\82 }
+:time{ $\83 }
+:in{ $\84 }
+:out{ $\85 }
+:pack{ $\86 }
+:unpack{ $\87 }
+:min{ $\88 }
+:max{ $\89 }
+:data{ $\8a }
+:array{ $\8b }
+:len{ $\8c }
+:get{ $\8d }
+:set{ $\8e }
+:copy{ $\8f }
+:fin{ $\90 }
+:fout{ $\91 }
+:load{ $\92 }
+:save{ $\93 }
+:b64{ $\94 }
+:b64decode{ $\95 }
 
-  @ Stdlib | Characters
-  :NL:0a
-  :TAB:09
-  :SPACE:20
-  :EXCLAMATION_MARK:21
-  :QUOTATION_MARK:22
-  :DOLLAR_SIGN:24
-  :PERCENT_SIGN:25
-  :AMPERSAND:26
-  :APOSTROPHE:27
-  :PAREN_L:28
-  :PAREN_R:29
-  :ASTERISK:2a
-  :PLUS_SIGN:2b
-  :COMMA:2c
-  :HYPHEN:2d
-  :SLASH:2f
-  :COLON:3a
-  :SEMICOLON:3b
-  :LT_SIGN:3c
-  :EQ_SIGN:3d
-  :GT_SIGN:3e
-  :QUESTION_MARK:3f
-  :AT_SIGN:40
-  :BACKSLASH:5c
-  :CARET:5e
-  :BACKTICK:60
-  :CURLY_BRACE_L:7b
-  :VERTICAL_BAR:7c
-  :CURLY_BRACE_R:7d
-  :TILDA:7e
-  
-  @ Stdlib | Results (ugly way to return multiple values)
-  :r0:NIL @ unused because it always gets returned on the stack
-  :r1:NIL
-  :r2:NIL
-  :result2(a,b){ :r1:b $a }
-  :result3(a,b,c){ :r1:b :r2:c $a }
+@ Stdlib | Misc Constants
+:EMPTY_DATA:""
+:EMPTY_ARRAY:array(0)
 
-  @ Stdlib | Misc
-  :select(x,a,b){
-    ?x{ $a }:{ $b }
-  }
-  :default(x,def){
-    ?is(x,NIL){ $def }:{ $x }
-  }
-  :empty(x){
-    $is(x,NIL)|(len(x)=0)
-  }
-  :assert(a){
-    ?a{ $NIL }
-    !"Assertion failed"
-  }
+@ Stdlib | Characters
+:NL:0a
+:TAB:09
+:SPACE:20
+:EXCLAMATION_MARK:21
+:QUOTATION_MARK:22
+:DOLLAR_SIGN:24
+:PERCENT_SIGN:25
+:AMPERSAND:26
+:APOSTROPHE:27
+:PAREN_L:28
+:PAREN_R:29
+:ASTERISK:2a
+:PLUS_SIGN:2b
+:COMMA:2c
+:HYPHEN:2d
+:SLASH:2f
+:COLON:3a
+:SEMICOLON:3b
+:LT_SIGN:3c
+:EQ_SIGN:3d
+:GT_SIGN:3e
+:QUESTION_MARK:3f
+:AT_SIGN:40
+:BACKSLASH:5c
+:CARET:5e
+:BACKTICK:60
+:CURLY_BRACE_L:7b
+:VERTICAL_BAR:7c
+:CURLY_BRACE_R:7d
+:TILDA:7e
 
-  @ Stdlib | Integer
-  :fp(i,f){
-    $(i*10000)+f
-  }
-  :int(x){
-    $(x/10000)
-  }
-  :itod(x){
-    ?x=0{ $"0" }
-    :y:x
-    :n:0
-    ?y{
-      :y:y/+a
-      :n:n+1
-    }^
-    :d:data(n)
-    :i:n-1
-    ?x{
-      set(d,i,(x%+a)+30)
-      :x:x/+a
-      :i:i-1
-    }^
-    $d
-  }
-  :clamp(x,l,h){
-    $min(max(x,l),h)
-  }
+@ Stdlib | Results (ugly way to return multiple values)
+:r0:NIL @ unused because it always gets returned on the stack
+:r1:NIL
+:r2:NIL
+:result2(a,b){ :r1:b $a }
+:result3(a,b,c){ :r1:b :r2:c $a }
 
-  @ Stdlib | Text
-  :pad(t,c,n){
-    :padded:data(n+len(t))
-    copy(padded,t,n,0,len(t))
-    ?n>0{
-      :n:n-1
-      set(padded,n,c)
-    }^
-    $padded
-  }
-  :_build_char_map(char_map){
-    :c:7f
-    ?c>-1{
-      set(char_map,c,set(data(1),0,c))
-      :c:c-1
-    }^
-    $char_map
-  }
-  :_char_map:_build_char_map(array(80))
-  :char(x){
-    $get(_char_map,x)
-  }
-  :digit(x){
-    $get(_char_map,x+30)
-  }
-  :_hex_digits:"0123456789abcdef"
-  :hex_digit(x){
-    $get(_hex_digits,x)
-  }
-  :parse_hex_digit(c){
-    :x:c-61
-    ?x<0{ $x+31 }
-    $x+0a
-  }
-  :is_digit(x){
-    $((x>2f)&(x<3a))
-  }
-  :is_digit_or_sign(x){
-    $((x>2f)&(x<3a))|(x=PLUS_SIGN)|(x=HYPHEN)
-  }
-  :is_hex_digit(x){
-    $((x>2f)&(x<3a))|((x>60)&(x<67))
-  }
-  :is_alpha(x){
-    $((x>40)&(x<5b))|((x>60)&(x<7b))
-  }
-  :is_word(x){
-    $((x>40)&(x<5b))|((x>60)&(x<7b))|((x>2f)&(x<3a))|(x=5f)
-  }
-  
-  @ Stdlib | Data
-  :dchunk(d,i,n){
-    $copy(data(n),d,0,i,n)
-  }
-  :dclone(d){
-    $copy(data(len(d)),d,0,0,len(d))
-  }
-  :dresize(d,n){
-    $copy(array(n),d,0,0,len(d))
-  }
-  :dconcat(a,b){
-    :c:data(len(a)+len(b))
-    copy(c,a,0,0,len(a))
-    copy(c,b,len(a),0,len(b))
-    $c
-  }
-  :join(delimiter,datas){
-    :n:len(datas)
-    :i:n-1
-    ?i=0{ $EMPTY_DATA }
-    :new_str_n:(i*len(delimiter))
-    ?i>-1{
-      :new_str_n:new_str_n+len(get(datas,i))
-      :i:i-1
-    }^
-    :new_str:data(new_str_n)
-    :old_str:get(datas,0)
-    copy(new_str,old_str,0,0,len(old_str))
-    :new_str_i:len(old_str) 
-    :i:1
-    ?i<n{
-      :old_str:get(datas,i)
-      copy(new_str,delimiter,new_str_i,0,len(delimiter))
-      :new_str_i:new_str_i+len(delimiter)
-      copy(new_str,old_str,new_str_i,0,len(old_str))
-      :new_str_i:new_str_i+len(old_str)
-      :i:i+1
-    }^
-    $new_str
-  }
-  :joinlines(a){
-    $join(char(NL),a)
-  }
+@ Stdlib | Misc
+:select(x,a,b){
+  ?x{ $a }:{ $b }
+}
+:default(x,def){
+  ?is(x,NIL){ $def }:{ $x }
+}
+:empty(x){
+  $is(x,NIL)|(len(x)=0)
+}
+:assert(a){
+  ?a{ $NIL }
+  !"Assertion failed"
+}
 
-  @ Stdlib | Array
-  :achunk(a,i,n){
-    $copy(array(n),a,0,i,n)
-  }
-  :aclone(a){
-    $copy(array(len(a)),a,0,0,len(a))
-  }
-  :aresize(a,n){
-    $copy(array(n),a,0,0,len(a))
-  }
-  :aconcat(a,b){
-    :c:array(len(a)+len(b))
-    copy(c,a,0,0,len(a))
-    copy(c,b,len(a),0,len(b))
-    $c
-  }
-  :flatten(a){
-    :n:len(a)
-    :i:n-1
-    ?i=0{ $EMPTY_ARRAY }
-    :flattened_n:0
-    ?i>-1{
-      :flattened_n:flattened_n+len(get(a,i))
-      :i:i-1
-    }^
-    :flattened:array(flattened_n)
-    :flattened_i:0 
-    :i:0
-    ?i<n{
-      :cur_array:get(a,i)
-      copy(flattened,cur_array,flattened_i,0,len(cur_array))
-      :flattened_i:flattened_i+len(cur_array)
-      :i:i+1
-    }^
-    $flattened 
-  }
-  :_lookup_index(a,k){
-    @ TODO: replace built-in hash() with this?
-    :n:len(a)
-    :i:hash(k)%n
-    :j:i+n
-    ?i<j{
-      :x:get(a,i%n)
-      ?x=NIL{
-        $i%n
-      }
-      ?get(x,0)=k{
-        $i%n
-      }
-      :i:i+1
-    }^
-    $-1 @ out of free slots
-  }
-  :put(a,k,v){
-    :i:_lookup_index(a,k)
-    :n:len(a)
-    :x:get(a,i)
+@ Stdlib | Integer
+:fp(i,f){
+  $(i*10000)+f
+}
+:int(x){
+  $(x/10000)
+}
+:itod(x){
+  ?x=0{ $"0" }
+  :y:x
+  :n:0
+  ?y{
+    :y:y/+a
+    :n:n+1
+  }^
+  :d:data(n)
+  :i:n-1
+  ?x{
+    set(d,i,(x%+a)+30)
+    :x:x/+a
+    :i:i-1
+  }^
+  $d
+}
+:clamp(x,l,h){
+  $min(max(x,l),h)
+}
+
+@ Stdlib | Text
+:pad(t,c,n){
+  :padded:data(n+len(t))
+  copy(padded,t,n,0,len(t))
+  ?n>0{
+    :n:n-1
+    set(padded,n,c)
+  }^
+  $padded
+}
+:_build_char_map(char_map){
+  :c:7f
+  ?c>-1{
+    set(char_map,c,set(data(1),0,c))
+    :c:c-1
+  }^
+  $char_map
+}
+:_char_map:_build_char_map(array(80))
+:char(x){
+  $get(_char_map,x)
+}
+:digit(x){
+  $get(_char_map,x+30)
+}
+:_hex_digits:"0123456789abcdef"
+:hex_digit(x){
+  $get(_hex_digits,x)
+}
+:parse_hex_digit(c){
+  :x:c-61
+  ?x<0{ $x+31 }
+  $x+0a
+}
+:is_digit(x){
+  $((x>2f)&(x<3a))
+}
+:is_digit_or_sign(x){
+  $((x>2f)&(x<3a))|(x=PLUS_SIGN)|(x=HYPHEN)
+}
+:is_hex_digit(x){
+  $((x>2f)&(x<3a))|((x>60)&(x<67))
+}
+:is_alpha(x){
+  $((x>40)&(x<5b))|((x>60)&(x<7b))
+}
+:is_word(x){
+  $((x>40)&(x<5b))|((x>60)&(x<7b))|((x>2f)&(x<3a))|(x=5f)
+}
+
+@ Stdlib | Data
+:dchunk(d,i,n){
+  $copy(data(n),d,0,i,n)
+}
+:dclone(d){
+  $copy(data(len(d)),d,0,0,len(d))
+}
+:dresize(d,n){
+  $copy(array(n),d,0,0,len(d))
+}
+:dconcat(a,b){
+  :c:data(len(a)+len(b))
+  copy(c,a,0,0,len(a))
+  copy(c,b,len(a),0,len(b))
+  $c
+}
+:join(delimiter,datas){
+  :n:len(datas)
+  :i:n-1
+  ?i=0{ $EMPTY_DATA }
+  :new_str_n:(i*len(delimiter))
+  ?i>-1{
+    :new_str_n:new_str_n+len(get(datas,i))
+    :i:i-1
+  }^
+  :new_str:data(new_str_n)
+  :old_str:get(datas,0)
+  copy(new_str,old_str,0,0,len(old_str))
+  :new_str_i:len(old_str) 
+  :i:1
+  ?i<n{
+    :old_str:get(datas,i)
+    copy(new_str,delimiter,new_str_i,0,len(delimiter))
+    :new_str_i:new_str_i+len(delimiter)
+    copy(new_str,old_str,new_str_i,0,len(old_str))
+    :new_str_i:new_str_i+len(old_str)
+    :i:i+1
+  }^
+  $new_str
+}
+:joinlines(a){
+  $join(char(NL),a)
+}
+
+@ Stdlib | Array
+:achunk(a,i,n){
+  $copy(array(n),a,0,i,n)
+}
+:aclone(a){
+  $copy(array(len(a)),a,0,0,len(a))
+}
+:aresize(a,n){
+  $copy(array(n),a,0,0,len(a))
+}
+:aconcat(a,b){
+  :c:array(len(a)+len(b))
+  copy(c,a,0,0,len(a))
+  copy(c,b,len(a),0,len(b))
+  $c
+}
+:flatten(a){
+  :n:len(a)
+  :i:n-1
+  ?i=0{ $EMPTY_ARRAY }
+  :flattened_n:0
+  ?i>-1{
+    :flattened_n:flattened_n+len(get(a,i))
+    :i:i-1
+  }^
+  :flattened:array(flattened_n)
+  :flattened_i:0 
+  :i:0
+  ?i<n{
+    :cur_array:get(a,i)
+    copy(flattened,cur_array,flattened_i,0,len(cur_array))
+    :flattened_i:flattened_i+len(cur_array)
+    :i:i+1
+  }^
+  $flattened 
+}
+:_lookup_index(a,k){
+  @ TODO: replace built-in hash() with this?
+  :n:len(a)
+  :i:hash(k)%n
+  :j:i+n
+  ?i<j{
+    :x:get(a,i%n)
     ?x=NIL{
-      set(a,i,(,k,v))
-    }:{
-      set(x,1,v)
+      $i%n
     }
-    $a
-  }
-  :lookup(a,k){
-    :i:_lookup_index(a,k)
-    ?i>-1{
-      :x:get(a,i)
-      ?~(x=NIL){
-        $get(x,1)
-      }
+    ?get(x,0)=k{
+      $i%n
     }
-    $NIL
+    :i:i+1
+  }^
+  $-1 @ out of free slots
+}
+:put(a,k,v){
+  :i:_lookup_index(a,k)
+  :n:len(a)
+  :x:get(a,i)
+  ?x=NIL{
+    set(a,i,(,k,v))
+  }:{
+    set(x,1,v)
   }
-  :count_kvs(a){
-    :c:0
-    :i:0
-    :n:len(a)
-    ?i<n{
-      ?get(a,i)=NIL{
-        :c:c+1
-      }
-      :i:i+1
-    }^
-    $n-c
-  }
-
-  @ Stdlib | Data/Array
-  :assign(a,b){
-    $copy(a,b,0,0,len(a))
-  }
-  :fill(a,i,j,x){
-    :n:0
-    ?i<j{
-      set(a,i,x)
-      :i:i+1
-    }^
-    $a
-  }
-  :sum(a,i,j){
-    :x:0
-    ?i<j{
-      :x:x+get(a,i)
-      :i:i+1
-    }^
-    $x
-  }
-  :count(a,i,j,x){
-    :n:0
-    ?i<j{
-      ?get(a,i)=x{
-        :n:n+1
-      }
-      :i:i+1
-    }^
-    $n
-  }
-  :find(a,i,j,x){
-    ?i<j{
-      ?get(a,i)=x{
-        $i
-      }
-      :i:i+1
-    }^
-    $-1
-  }
-  :find_reverse(a,i,j,x){
-    ?j>i{
-      :j:j-1
-      ?get(a,j)=x{
-        $j
-      }
-    }^
-    $-1
-  }
-
-  @ Stdlib | Vector
-  :Vector_v(vec){ $get(vec,0) }
-  :Vector_n(vec){ $get(vec,1) }
-  :Vector_set_v(vec,v){ $set(vec,0,v) }
-  :Vector_set_n(vec,n){ $set(vec,1,n) }
-  :Vector_capacity(vec){ $len(get(vec,0)) }
-  :Vector_set_capacity(vec,capacity){
-    $set(vec,0,aresize(get(vec,0),capacity))
-  }
-  :Vector_get(vec,i){
-    $get(get(vec,0),i)
-  }
-  :Vector_set(vec,i,x){
-    set(get(vec,0),i,x)
-    $vec
-  }
-  :Vector_last(vec){
-    $Vector_get(vec,Vector_n(vec)-1)
-  }
-  :Vector_pop(vec){
-    :i:Vector_n(vec)-1
-    :x:Vector_get(vec,i)
-    Vector_set_n(vec,i)
-    $x
-  }
-  :Vector_resize(vec,n){
-    ?~(n<Vector_capacity(vec)){
-      :capacity:1
-      ?capacity<n{
-        :capacity:capacity*2
-      }^
-      Vector_set_capacity(vec,capacity)
+  $a
+}
+:lookup(a,k){
+  :i:_lookup_index(a,k)
+  ?i>-1{
+    :x:get(a,i)
+    ?~(x=NIL){
+      $get(x,1)
     }
-    Vector_set_n(vec,n)
-    $vec
   }
-  :Vector_append(vec,x){
-    :v:Vector_v(vec)
-    :i:Vector_n(vec)
-    Vector_resize(vec,i+1)
-    Vector_set(vec,i,x)
-    $vec
-  }
-  :Vector_init(vec,capacity){
-    Vector_set_v(vec,array(capacity))
-    Vector_set_n(vec,0)
-    $vec
-  }
-  :Vector(capacity){
-    $Vector_init(array(2),capacity)
-  }
-  
-  @
-  @ Compiler
-  @
+  $NIL
+}
+:count_kvs(a){
+  :c:0
+  :i:0
+  :n:len(a)
+  ?i<n{
+    ?get(a,i)=NIL{
+      :c:c+1
+    }
+    :i:i+1
+  }^
+  $n-c
+}
 
-  @ Compiler | Operator Constants
-  :NOP:20
-  :OP_BY_CODE:5c
-  :DROP:3b
-  :LOAD_INT:69
-  :LOAD_STR:73
-  :LOAD_ARRAY:61
-  :LOAD_FUNC:66
-  :GET_LOCAL:23
-  :GET_GLOBAL:67
-  :SET_LOCAL:3a
-  :SET_GLOBAL:47
-  :JUMP:6a
-  :JUMP_IF_ZERO:3f
-  :CALL:7b
-  :ARGS:70
-  :RETURN:24
-  :TRY:74
-  :END_TRY:54
-  :THROW:21
-  :NOT:7e
-  :NEG:6e
+@ Stdlib | Data/Array
+:assign(a,b){
+  $copy(a,b,0,0,len(a))
+}
+:fill(a,i,j,x){
+  :n:0
+  ?i<j{
+    set(a,i,x)
+    :i:i+1
+  }^
+  $a
+}
+:sum(a,i,j){
+  :x:0
+  ?i<j{
+    :x:x+get(a,i)
+    :i:i+1
+  }^
+  $x
+}
+:count(a,i,j,x){
+  :n:0
+  ?i<j{
+    ?get(a,i)=x{
+      :n:n+1
+    }
+    :i:i+1
+  }^
+  $n
+}
+:find(a,i,j,x){
+  ?i<j{
+    ?get(a,i)=x{
+      $i
+    }
+    :i:i+1
+  }^
+  $-1
+}
+:find_reverse(a,i,j,x){
+  ?j>i{
+    :j:j-1
+    ?get(a,j)=x{
+      $j
+    }
+  }^
+  $-1
+}
 
-  @ Compiler | Forward Declarations
-  :Compiler_c_expr
-  :Compiler_c_code_block
-
-  @ Compiler | Getters / Setters
-  :Compiler_jam(comp){ $get(comp,0) }
-  :Compiler_jam_idx(comp){ $get(comp,1) }
-  :Compiler_set_jam_idx(comp,i){ $set(comp,1,i) }
-  :Compiler_debug(comp){ $get(comp,2) }
-  :Compiler_vs(comp){ $get(comp,3) }
-  :Compiler_gv(comp){ $Vector_get(get(comp,3),0) }
-  :Compiler_lv(comp){ $Vector_last(get(comp,3)) }
-
-  :Compiler_jam_for_output(comp){
-    $dchunk(Compiler_jam(comp),0,Compiler_jam_idx(comp))
-  }
-
-  @ Compiler | Jam Output
-  :Compiler_encode_byte(comp,i,x){
-    :jam:Compiler_jam(comp)
-    set(jam,i+0,hex_digit(unpack(x,+f0)))
-    set(jam,i+1,hex_digit(x&+f))
-    $i+2
-  }
-  :Compiler_encode_short(comp,i,x){
-    :jam:Compiler_jam(comp)
-    set(jam,i+0,hex_digit(unpack(x,+f000)))
-    set(jam,i+1,hex_digit(unpack(x,+f00)))
-    set(jam,i+2,hex_digit(unpack(x,+f0)))
-    set(jam,i+3,hex_digit(x&+f))
-    $i+4
-  }
-  :Compiler_append_op(comp,op){
-    :i:Compiler_jam_idx(comp)
-    set(Compiler_jam(comp),i,op)
-    $Compiler_set_jam_idx(comp,i+1)
-  }
-  :Compiler_append_op_w_byte(comp,op,x){
-    :i:Compiler_jam_idx(comp)
-    set(Compiler_jam(comp),i,op)
-    :i:Compiler_encode_byte(comp,i+1,x)
-    $Compiler_set_jam_idx(comp,i)
-  }
-  :Compiler_append_op_w_short(comp,op,x){
-    :i:Compiler_jam_idx(comp)
-    set(Compiler_jam(comp),i,op)
-    :i:Compiler_encode_short(comp,i+1,x)
-    $Compiler_set_jam_idx(comp,i)
-  }
-  :Compiler_append_text(comp,d,i,j){
-    :jam:Compiler_jam(comp)
-    :jam_i:Compiler_jam_idx(comp) 
-    ?i<j{
-      set(jam,jam_i,get(d,i))
-      :jam_i:jam_i+1
-      :i:i+1
+@ Stdlib | Vector
+:Vector_v(vec){ $get(vec,0) }
+:Vector_n(vec){ $get(vec,1) }
+:Vector_set_v(vec,v){ $set(vec,0,v) }
+:Vector_set_n(vec,n){ $set(vec,1,n) }
+:Vector_capacity(vec){ $len(get(vec,0)) }
+:Vector_set_capacity(vec,capacity){
+  $set(vec,0,aresize(get(vec,0),capacity))
+}
+:Vector_get(vec,i){
+  $get(get(vec,0),i)
+}
+:Vector_set(vec,i,x){
+  set(get(vec,0),i,x)
+  $vec
+}
+:Vector_last(vec){
+  $Vector_get(vec,Vector_n(vec)-1)
+}
+:Vector_pop(vec){
+  :i:Vector_n(vec)-1
+  :x:Vector_get(vec,i)
+  Vector_set_n(vec,i)
+  $x
+}
+:Vector_resize(vec,n){
+  ?~(n<Vector_capacity(vec)){
+    :capacity:1
+    ?capacity<n{
+      :capacity:capacity*2
     }^
-    $Compiler_set_jam_idx(comp,jam_i)
+    Vector_set_capacity(vec,capacity)
   }
-  :Compiler_append_op_w_addr:Compiler_append_op_w_short
-  :Compiler_swap_chunks(comp,ai,aj,bi,bj){
-    @ swap chunks a and b, preserving the data between them
-    :jam:Compiler_jam(comp)
-    :jam_n:Compiler_jam_idx(comp)
-    :an:aj-ai
-    :bn:bj-bi
-    :cn:bj-ai
-    :swapped_chunk:data(cn)
-    copy(swapped_chunk,jam,0,bi,bn)
-    copy(swapped_chunk,jam,bn,aj,bi-aj)
-    copy(swapped_chunk,jam,bj-aj,ai,an)
-    copy(jam,swapped_chunk,ai,0,cn)
-    $comp
-  }
-  :Compiler_throw_syntax_err(code,i,msg){
-    :line_num:count(code,0,i,NL)+1
-    :line_start:find_reverse(code,0,i,NL)+1
-    ?line_start=-1{ :line_start:0 } 
-    :line_end:find(code,i,len(code),NL)
-    ?line_end=-1{ :line_end:len(code) }
-    :line:dchunk(code,line_start,line_end-line_start)
-    :line_arrow:pad("^",SPACE,i-line_start)
-    !joinlines(,join(EMPTY_DATA,(,"Syntax error on line ",itod(line_num),": ",msg)),line,line_arrow)
-  }
+  Vector_set_n(vec,n)
+  $vec
+}
+:Vector_append(vec,x){
+  :v:Vector_v(vec)
+  :i:Vector_n(vec)
+  Vector_resize(vec,i+1)
+  Vector_set(vec,i,x)
+  $vec
+}
+:Vector_init(vec,capacity){
+  Vector_set_v(vec,array(capacity))
+  Vector_set_n(vec,0)
+  $vec
+}
+:Vector(capacity){
+  $Vector_init(array(2),capacity)
+}
 
-  @ Compiler | Parsing Helpers
-  :Compiler_parse_char(code,i,m){
+@
+@ Compiler
+@
+
+@ Compiler | Operator Constants
+:NOP:20
+:OP_BY_CODE:5c
+:DROP:3b
+:LOAD_INT:69
+:LOAD_STR:73
+:LOAD_ARRAY:61
+:LOAD_FUNC:66
+:GET_LOCAL:23
+:GET_GLOBAL:67
+:SET_LOCAL:3a
+:SET_GLOBAL:47
+:JUMP:6a
+:JUMP_IF_ZERO:3f
+:CALL:7b
+:ARGS:70
+:RETURN:24
+:TRY:74
+:END_TRY:54
+:THROW:21
+:NOT:7e
+:NEG:6e
+
+@ Compiler | Forward Declarations
+:Compiler_c_expr
+:Compiler_c_code_block
+
+@ Compiler | Getters / Setters
+:Compiler_jam(comp){ $get(comp,0) }
+:Compiler_jam_idx(comp){ $get(comp,1) }
+:Compiler_set_jam_idx(comp,i){ $set(comp,1,i) }
+:Compiler_debug(comp){ $get(comp,2) }
+:Compiler_vs(comp){ $get(comp,3) }
+:Compiler_gv(comp){ $Vector_get(get(comp,3),0) }
+:Compiler_lv(comp){ $Vector_last(get(comp,3)) }
+
+:Compiler_jam_for_output(comp){
+  $dchunk(Compiler_jam(comp),0,Compiler_jam_idx(comp))
+}
+
+@ Compiler | Jam Output
+:Compiler_encode_byte(comp,i,x){
+  :jam:Compiler_jam(comp)
+  set(jam,i+0,hex_digit(unpack(x,+f0)))
+  set(jam,i+1,hex_digit(x&+f))
+  $i+2
+}
+:Compiler_encode_short(comp,i,x){
+  :jam:Compiler_jam(comp)
+  set(jam,i+0,hex_digit(unpack(x,+f000)))
+  set(jam,i+1,hex_digit(unpack(x,+f00)))
+  set(jam,i+2,hex_digit(unpack(x,+f0)))
+  set(jam,i+3,hex_digit(x&+f))
+  $i+4
+}
+:Compiler_append_op(comp,op){
+  :i:Compiler_jam_idx(comp)
+  set(Compiler_jam(comp),i,op)
+  $Compiler_set_jam_idx(comp,i+1)
+}
+:Compiler_append_op_w_byte(comp,op,x){
+  :i:Compiler_jam_idx(comp)
+  set(Compiler_jam(comp),i,op)
+  :i:Compiler_encode_byte(comp,i+1,x)
+  $Compiler_set_jam_idx(comp,i)
+}
+:Compiler_append_op_w_short(comp,op,x){
+  :i:Compiler_jam_idx(comp)
+  set(Compiler_jam(comp),i,op)
+  :i:Compiler_encode_short(comp,i+1,x)
+  $Compiler_set_jam_idx(comp,i)
+}
+:Compiler_append_text(comp,d,i,j){
+  :jam:Compiler_jam(comp)
+  :jam_i:Compiler_jam_idx(comp) 
+  ?i<j{
+    set(jam,jam_i,get(d,i))
+    :jam_i:jam_i+1
+    :i:i+1
+  }^
+  $Compiler_set_jam_idx(comp,jam_i)
+}
+:Compiler_append_op_w_addr:Compiler_append_op_w_short
+:Compiler_swap_chunks(comp,ai,aj,bi,bj){
+  @ swap chunks a and b, preserving the data between them
+  :jam:Compiler_jam(comp)
+  :jam_n:Compiler_jam_idx(comp)
+  :an:aj-ai
+  :bn:bj-bi
+  :cn:bj-ai
+  :swapped_chunk:data(cn)
+  copy(swapped_chunk,jam,0,bi,bn)
+  copy(swapped_chunk,jam,bn,aj,bi-aj)
+  copy(swapped_chunk,jam,bj-aj,ai,an)
+  copy(jam,swapped_chunk,ai,0,cn)
+  $comp
+}
+:Compiler_throw_syntax_err(code,i,msg){
+  :line_num:count(code,0,i,NL)+1
+  :line_start:find_reverse(code,0,i,NL)+1
+  ?line_start=-1{ :line_start:0 } 
+  :line_end:find(code,i,len(code),NL)
+  ?line_end=-1{ :line_end:len(code) }
+  :line:dchunk(code,line_start,line_end-line_start)
+  :line_arrow:pad("^",SPACE,i-line_start)
+  !joinlines(,join(EMPTY_DATA,(,"Syntax error on line ",itod(line_num),": ",msg)),line,line_arrow)
+}
+
+@ Compiler | Parsing Helpers
+:Compiler_parse_char(code,i,m){
+  :c:get(code,i)
+  ?c=m{
+    $i+1
+  }
+  :msg:join(EMPTY_DATA,(,"Expected char '",char(m),"'"))
+  Compiler_throw_syntax_err(code,i,msg)
+}
+:Compiler_parse_int(code,i){
+  :s:1
+  :c:get(code,i)
+  ?c=PLUS_SIGN{
+    :i:i+1
+  }:?c=HYPHEN{
+    :s:-1
+    :i:i+1
+  }
+  :j:i
+  ?is_hex_digit(get(code,j)){
+    :j:j+1
+  }^
+  :x:0 
+  :n:j-i-1
+  :m:1
+  ?n>-1{
+    :x:x+(parse_hex_digit(get(code,i+n))*m)
+    :m:m*10
+    :n:n-1
+  }^
+  ?i=j{
+    Compiler_throw_syntax_err(code,i,"Expected integer")
+  }
+  $result2(j,x*s)
+}
+:Compiler_parse_symbol(comp,code,i){
+  ?~is_word(get(code,i)){
+    Compiler_throw_syntax_err(code,i,"Expected symbol") 
+  }
+  :n:0
+  ?is_word(get(code,i+n)){
+    :n:n+1
+  }^
+  $result2(i+n,dchunk(code,i,n))
+}
+:Compiler_parse_eol(comp,code,i){
+  :c:get(code,i)
+  ?(c=NL)|(c=SPACE){
+    $i+1
+  }
+  Compiler_throw_syntax_err(code,i,"Expected end of line")
+}
+
+@ Compiler | Compile
+:Compiler_c_integer(comp,code,i){
+  :i:Compiler_parse_int(code,i)
+  Compiler_append_op_w_short(comp,LOAD_INT,r1)
+  $i
+}
+:Compiler_c_operand(comp,code,i){
+  :c:get(code,i)
+  @ integer
+  ?is_digit_or_sign(c){
+    $Compiler_c_integer(comp,code,i)
+  }
+  @ text
+  ?c=QUOTATION_MARK{
+    :i:i+1
     :c:get(code,i)
-    ?c=m{
-      $i+1
-    }
-    :msg:join(EMPTY_DATA,(,"Expected char '",char(m),"'"))
-    Compiler_throw_syntax_err(code,i,msg)
-  }
-  :Compiler_parse_int(code,i){
-    :s:1
-    :c:get(code,i)
-    ?c=PLUS_SIGN{
-      :i:i+1
-    }:?c=HYPHEN{
-      :s:-1
-      :i:i+1
-    }
     :j:i
-    ?is_hex_digit(get(code,j)){
+    ?~(get(code,j)=QUOTATION_MARK){
       :j:j+1
     }^
-    :x:0 
-    :n:j-i-1
-    :m:1
-    ?n>-1{
-      :x:x+(parse_hex_digit(get(code,i+n))*m)
-      :m:m*10
-      :n:n-1
-    }^
-    ?i=j{
-      Compiler_throw_syntax_err(code,i,"Expected integer")
-    }
-    $result2(j,x*s)
+    Compiler_append_op_w_short(comp,LOAD_STR,j-i)
+    Compiler_append_text(comp,code,i,j)
+    $j+1
   }
-  :Compiler_parse_symbol(comp,code,i){
-    ?~is_word(get(code,i)){
-      Compiler_throw_syntax_err(code,i,"Expected symbol") 
-    }
-    :n:0
-    ?is_word(get(code,i+n)){
-      :n:n+1
-    }^
-    $result2(i+n,dchunk(code,i,n))
-  }
-  :Compiler_parse_eol(comp,code,i){
-    :c:get(code,i)
-    ?(c=NL)|(c=SPACE){
-      $i+1
-    }
-    Compiler_throw_syntax_err(code,i,"Expected end of line")
-  }
-
-  @ Compiler | Compile
-  :Compiler_c_integer(comp,code,i){
-    :i:Compiler_parse_int(code,i)
-    Compiler_append_op_w_short(comp,LOAD_INT,r1)
-    $i
-  }
-  :Compiler_c_operand(comp,code,i){
-    :c:get(code,i)
-    @ integer
-    ?is_digit_or_sign(c){
-      $Compiler_c_integer(comp,code,i)
-    }
-    @ text
-    ?c=QUOTATION_MARK{
-      :i:i+1
-      :c:get(code,i)
-      :j:i
-      ?~(get(code,j)=QUOTATION_MARK){
-        :j:j+1
-      }^
-      Compiler_append_op_w_short(comp,LOAD_STR,j-i)
-      Compiler_append_text(comp,code,i,j)
-      $j+1
-    }
-    @ variable / function call
-    ?is_word(c){
-      :i:Compiler_parse_symbol(comp,code,i)
-      :symbol:r1
-      @ local
-      ?Vector_n(Compiler_vs(comp))>1{
-        :li:lookup(Compiler_lv(comp),symbol)
-        ?~(li=NIL){
-          Compiler_append_op_w_byte(comp,GET_LOCAL,li)
-          $i
-        }
-      }
-      @ global
-      :gi:lookup(Compiler_gv(comp),symbol)
-      ?~(gi=NIL){
-        Compiler_append_op_w_short(comp,GET_GLOBAL,gi)
+  @ variable / function call
+  ?is_word(c){
+    :i:Compiler_parse_symbol(comp,code,i)
+    :symbol:r1
+    @ local
+    ?Vector_n(Compiler_vs(comp))>1{
+      :li:lookup(Compiler_lv(comp),symbol)
+      ?~(li=NIL){
+        Compiler_append_op_w_byte(comp,GET_LOCAL,li)
         $i
       }
-      Compiler_throw_syntax_err(code,i,"Variable not defined")
     }
-    @ group
-    ?c=PAREN_L{
-      :i:Compiler_c_expr(comp,code,i+1)
-      $Compiler_parse_char(code,i,PAREN_R)
-    }
-    @ array
-    ?c=COMMA{
-      :n:0
-      ?get(code,i)=COMMA{
-        :i:Compiler_c_expr(comp,code,i+1)
-        :n:n+1
-      }^
-      Compiler_append_op_w_short(comp,LOAD_ARRAY,n)
+    @ global
+    :gi:lookup(Compiler_gv(comp),symbol)
+    ?~(gi=NIL){
+      Compiler_append_op_w_short(comp,GET_GLOBAL,gi)
       $i
     }
-    @ data
-    ?c=BACKTICK{
-      :i:i+1
-      :c:get(code,i)
-      :j:i
-      ?~(get(code,j)=BACKTICK){
-        :j:j+1
-      }^
-      :text:b64(fin(dchunk(code,i,j-i)))
-      Compiler_append_op_w_short(comp,LOAD_STR,len(text))
-      Compiler_append_text(comp,text,0,len(text))
-      Compiler_append_op_w_byte(comp,OP_BY_CODE,95)
-      $j+1
-    }
-    @ operation-by-code (for defining built-ins)
-    ?c=BACKSLASH{
-      :i:Compiler_parse_int(code,i+1)
-      Compiler_append_op_w_byte(comp,OP_BY_CODE,r1)
-      $i
-    }
-    Compiler_throw_syntax_err(code,i,"Invalid operand")
+    Compiler_throw_syntax_err(code,i,"Variable not defined")
   }
-  :Compiler_c_unary_op(comp,code,i){
-    @ pre operators (pick one -- can't think of a reason to intermix or repeat)
-    @ NOTE: negative requires lookahead (probably should tokenize afterall)
-    :not:(get(code,i)=TILDA)
-    :neg:(get(code,i)=HYPHEN)&~is_digit(get(code,i+1))
-    ?not|neg{
-      :i:i+1
-    }
-    @ operand
-    :operand_start:Compiler_jam_idx(comp)
-    :i:Compiler_c_operand(comp,code,i)
-    @ post operators (ie. function call)
-    ?get(code,i)=PAREN_L{
-      :i:i+1
-      :args_start:Compiler_jam_idx(comp)
-      ?~(get(code,i)=PAREN_R){
-        :i:Compiler_c_expr(comp,code,i)
-        ?get(code,i)=COMMA{
-          :i:i+1
-        }
-      }^
-      :i:i+1 @ consume )
-      Compiler_swap_chunks(comp,operand_start,args_start,args_start,Compiler_jam_idx(comp))
-      Compiler_append_op(comp,CALL)
-    }^
-    @ apply pre operator
-    ?not{
-      Compiler_append_op(comp,NOT)
-    }:?neg{
-      Compiler_append_op(comp,NEG)
-    }
-    $i
+  @ group
+  ?c=PAREN_L{
+    :i:Compiler_c_expr(comp,code,i+1)
+    $Compiler_parse_char(code,i,PAREN_R)
   }
-  :is_binary_operator(c){
-    $(c=VERTICAL_BAR)|(c=AMPERSAND)|(c=CARET)|(c=EQ_SIGN)|(c=LT_SIGN)|(c=GT_SIGN)|(c=PLUS_SIGN)|(c=HYPHEN)|(c=ASTERISK)|(c=SLASH)|(c=PERCENT_SIGN)
-  }
-  :Compiler_c_expr(comp,code,i){
-    :i:Compiler_c_unary_op(comp,code,i)
-    ?is_binary_operator(get(code,i)){
-      :op:get(code,i)
-      :i:Compiler_c_unary_op(comp,code,i+1)
-      Compiler_append_op(comp,op)
-    }^
-    $i
-  }
-  :Compiler_c_args(comp,code,i){
-    :lv:Compiler_lv(comp)
+  @ array
+  ?c=COMMA{
     :n:0
-    ?get(code,i)=PAREN_L{
-      :i:i+1
-      ?~(get(code,i)=PAREN_R){
-        :i:Compiler_parse_symbol(comp,code,i) 
-        put(lv,r1,count_kvs(lv))
-        ?get(code,i)=COMMA{
-          :i:i+1
-        }
-        :n:n+1
-      }^
-      :i:i+1
-      Compiler_append_op_w_byte(comp,ARGS,n)
-    }
+    ?get(code,i)=COMMA{
+      :i:Compiler_c_expr(comp,code,i+1)
+      :n:n+1
+    }^
+    Compiler_append_op_w_short(comp,LOAD_ARRAY,n)
     $i
   }
-  :Compiler_c_statement(comp,code,i){
+  @ data
+  ?c=BACKTICK{
+    :i:i+1
     :c:get(code,i)
-    ?c=QUESTION_MARK{
-      @ if / while / try
-      ?get(code,i+1)=CURLY_BRACE_L{
-        :here:Compiler_jam_idx(comp)
-        Compiler_append_op_w_addr(comp,TRY,0)
-        :i:Compiler_c_code_block(comp,code,i+1)
-        Compiler_append_op(comp,END_TRY)
-      }:{
-        :top:Compiler_jam_idx(comp)
-        :i:Compiler_c_expr(comp,code,i+1)
-        :here:Compiler_jam_idx(comp)
-        Compiler_append_op_w_addr(comp,JUMP_IF_ZERO,0)
-        :i:Compiler_c_code_block(comp,code,i)
-      }
-      ?get(code,i)=COLON{
-        ?get(code,i)=COLON{
-          :there:here
-          :i:i+1
-          :here:Compiler_jam_idx(comp)
-          Compiler_append_op_w_addr(comp,JUMP,0)
-          Compiler_encode_short(comp,there+1,Compiler_jam_idx(comp))
-          ?get(code,i)=QUESTION_MARK{
-            :i:Compiler_c_expr(comp,code,i+1)
-            :there:Compiler_jam_idx(comp)
-            Compiler_append_op_w_addr(comp,JUMP_IF_ZERO,0)
-            :i:Compiler_c_code_block(comp,code,i)
-            Compiler_encode_short(comp,here+1,Compiler_jam_idx(comp))
-            :here:there
-          }:{
-            :i:Compiler_c_code_block(comp,code,i)
-          }
-        }^
-      }:?get(code,i)=CARET{
+    :j:i
+    ?~(get(code,j)=BACKTICK){
+      :j:j+1
+    }^
+    :text:b64(fin(dchunk(code,i,j-i)))
+    Compiler_append_op_w_short(comp,LOAD_STR,len(text))
+    Compiler_append_text(comp,text,0,len(text))
+    Compiler_append_op_w_byte(comp,OP_BY_CODE,95)
+    $j+1
+  }
+  @ operation-by-code (for defining built-ins)
+  ?c=BACKSLASH{
+    :i:Compiler_parse_int(code,i+1)
+    Compiler_append_op_w_byte(comp,OP_BY_CODE,r1)
+    $i
+  }
+  Compiler_throw_syntax_err(code,i,"Invalid operand")
+}
+:Compiler_c_unary_op(comp,code,i){
+  @ pre operators (pick one -- can't think of a reason to intermix or repeat)
+  @ NOTE: negative requires lookahead (probably should tokenize afterall)
+  :not:(get(code,i)=TILDA)
+  :neg:(get(code,i)=HYPHEN)&~is_digit(get(code,i+1))
+  ?not|neg{
+    :i:i+1
+  }
+  @ operand
+  :operand_start:Compiler_jam_idx(comp)
+  :i:Compiler_c_operand(comp,code,i)
+  @ post operators (ie. function call)
+  ?get(code,i)=PAREN_L{
+    :i:i+1
+    :args_start:Compiler_jam_idx(comp)
+    ?~(get(code,i)=PAREN_R){
+      :i:Compiler_c_expr(comp,code,i)
+      ?get(code,i)=COMMA{
         :i:i+1
-        Compiler_append_op_w_addr(comp,JUMP,top)
       }
-      Compiler_encode_short(comp,here+1,Compiler_jam_idx(comp))
-    }:?c=COLON{
-      @ function or variable assignment
-      :i:Compiler_parse_symbol(comp,code,i+1)
-      :symbol:r1
-      :c:get(code,i)
-      ?~((c=COLON)|(c=EXCLAMATION_MARK)|(c=PAREN_L)|(c=CURLY_BRACE_L)){
-        @ variable declaration
-        :lv:Compiler_lv(comp)
-        :li:lookup(lv,symbol)
-        ?li=NIL{
+    }^
+    :i:i+1 @ consume )
+    Compiler_swap_chunks(comp,operand_start,args_start,args_start,Compiler_jam_idx(comp))
+    Compiler_append_op(comp,CALL)
+  }^
+  @ apply pre operator
+  ?not{
+    Compiler_append_op(comp,NOT)
+  }:?neg{
+    Compiler_append_op(comp,NEG)
+  }
+  $i
+}
+:is_binary_operator(c){
+  $(c=VERTICAL_BAR)|(c=AMPERSAND)|(c=CARET)|(c=EQ_SIGN)|(c=LT_SIGN)|(c=GT_SIGN)|(c=PLUS_SIGN)|(c=HYPHEN)|(c=ASTERISK)|(c=SLASH)|(c=PERCENT_SIGN)
+}
+:Compiler_c_expr(comp,code,i){
+  :i:Compiler_c_unary_op(comp,code,i)
+  ?is_binary_operator(get(code,i)){
+    :op:get(code,i)
+    :i:Compiler_c_unary_op(comp,code,i+1)
+    Compiler_append_op(comp,op)
+  }^
+  $i
+}
+:Compiler_c_args(comp,code,i){
+  :lv:Compiler_lv(comp)
+  :n:0
+  ?get(code,i)=PAREN_L{
+    :i:i+1
+    ?~(get(code,i)=PAREN_R){
+      :i:Compiler_parse_symbol(comp,code,i) 
+      put(lv,r1,count_kvs(lv))
+      ?get(code,i)=COMMA{
+        :i:i+1
+      }
+      :n:n+1
+    }^
+    :i:i+1
+    Compiler_append_op_w_byte(comp,ARGS,n)
+  }
+  $i
+}
+:Compiler_c_statement(comp,code,i){
+  :c:get(code,i)
+  ?c=QUESTION_MARK{
+    @ if / while / try
+    ?get(code,i+1)=CURLY_BRACE_L{
+      :here:Compiler_jam_idx(comp)
+      Compiler_append_op_w_addr(comp,TRY,0)
+      :i:Compiler_c_code_block(comp,code,i+1)
+      Compiler_append_op(comp,END_TRY)
+    }:{
+      :top:Compiler_jam_idx(comp)
+      :i:Compiler_c_expr(comp,code,i+1)
+      :here:Compiler_jam_idx(comp)
+      Compiler_append_op_w_addr(comp,JUMP_IF_ZERO,0)
+      :i:Compiler_c_code_block(comp,code,i)
+    }
+    ?get(code,i)=COLON{
+      ?get(code,i)=COLON{
+        :there:here
+        :i:i+1
+        :here:Compiler_jam_idx(comp)
+        Compiler_append_op_w_addr(comp,JUMP,0)
+        Compiler_encode_short(comp,there+1,Compiler_jam_idx(comp))
+        ?get(code,i)=QUESTION_MARK{
+          :i:Compiler_c_expr(comp,code,i+1)
+          :there:Compiler_jam_idx(comp)
+          Compiler_append_op_w_addr(comp,JUMP_IF_ZERO,0)
+          :i:Compiler_c_code_block(comp,code,i)
+          Compiler_encode_short(comp,here+1,Compiler_jam_idx(comp))
+          :here:there
+        }:{
+          :i:Compiler_c_code_block(comp,code,i)
+        }
+      }^
+    }:?get(code,i)=CARET{
+      :i:i+1
+      Compiler_append_op_w_addr(comp,JUMP,top)
+    }
+    Compiler_encode_short(comp,here+1,Compiler_jam_idx(comp))
+  }:?c=COLON{
+    @ function or variable assignment
+    :i:Compiler_parse_symbol(comp,code,i+1)
+    :symbol:r1
+    :c:get(code,i)
+    ?~((c=COLON)|(c=EXCLAMATION_MARK)|(c=PAREN_L)|(c=CURLY_BRACE_L)){
+      @ variable declaration
+      :lv:Compiler_lv(comp)
+      :li:lookup(lv,symbol)
+      ?li=NIL{
+        :li:count_kvs(lv)
+        put(lv,symbol,li)
+      }
+    }:{
+      :gi:NIL
+      :lv:Compiler_lv(comp)
+      :li:lookup(lv,symbol)
+      ?li=NIL{
+        :gv:Compiler_gv(comp)
+        :gi:lookup(gv,symbol)
+        ?gi=NIL{
           :li:count_kvs(lv)
           put(lv,symbol,li)
         }
-      }:{
-        :gi:NIL
-        :lv:Compiler_lv(comp)
-        :li:lookup(lv,symbol)
-        ?li=NIL{
-          :gv:Compiler_gv(comp)
-          :gi:lookup(gv,symbol)
-          ?gi=NIL{
-            :li:count_kvs(lv)
-            put(lv,symbol,li)
-          }
-        }
-        ?(gi=NIL)&(Vector_n(Compiler_vs(comp))=1){
-          :gi:li
-        }
-        ?c=COLON{
-          @ simple assignment
-          :i:Compiler_c_expr(comp,code,i+1)
-        }:?c=EXCLAMATION_MARK{
-          @ pop from stack (only practical use for this is err)
-          :i:i+1
-        }:{
-          @ function definition
-          :vs:Compiler_vs(comp)
-          :top:Compiler_jam_idx(comp)
-          Compiler_append_op_w_addr(comp,JUMP,0)
-          :fv:array(100)
-          Vector_append(vs,fv)
-          :i:Compiler_c_args(comp,code,i)
-          :i:Compiler_c_code_block(comp,code,i)
-          Vector_pop(vs)
-          Compiler_encode_short(comp,top+1,Compiler_jam_idx(comp))
-          Compiler_append_op_w_addr(comp,LOAD_FUNC,top+5)
-        }
-        ?gi=NIL{
-          Compiler_append_op_w_byte(comp,SET_LOCAL,li)
-        }:{
-          Compiler_append_op_w_short(comp,SET_GLOBAL,gi)
-        }
       }
-    }:?is_word(c){
-      @ expression
-      :i:Compiler_c_expr(comp,code,i)
-      Compiler_append_op(comp,DROP)
-    }:?c=DOLLAR_SIGN{
-      @ return
-      :i:Compiler_c_expr(comp,code,i+1)
-      Compiler_append_op(comp,RETURN)
-    }:?c=EXCLAMATION_MARK{
-      @ throw
-      :i:Compiler_c_expr(comp,code,i+1)
-      Compiler_append_op(comp,THROW)
-    }:?c=AT_SIGN{
-      @ annotation
-      ?~(get(code,i)=NL){
+      ?(gi=NIL)&(Vector_n(Compiler_vs(comp))=1){
+        :gi:li
+      }
+      ?c=COLON{
+        @ simple assignment
+        :i:Compiler_c_expr(comp,code,i+1)
+      }:?c=EXCLAMATION_MARK{
+        @ pop from stack (only practical use for this is err)
         :i:i+1
-      }^
-    }:{
-      @ empty line is valid
+      }:{
+        @ function definition
+        :vs:Compiler_vs(comp)
+        :top:Compiler_jam_idx(comp)
+        Compiler_append_op_w_addr(comp,JUMP,0)
+        :fv:array(100)
+        Vector_append(vs,fv)
+        :i:Compiler_c_args(comp,code,i)
+        :i:Compiler_c_code_block(comp,code,i)
+        Vector_pop(vs)
+        Compiler_encode_short(comp,top+1,Compiler_jam_idx(comp))
+        Compiler_append_op_w_addr(comp,LOAD_FUNC,top+5)
+      }
+      ?gi=NIL{
+        Compiler_append_op_w_byte(comp,SET_LOCAL,li)
+      }:{
+        Compiler_append_op_w_short(comp,SET_GLOBAL,gi)
+      }
     }
-    ?Compiler_debug(comp)&(get(code,i)=NL){
-      Compiler_append_op(comp,NL)
-    }
-    $Compiler_parse_eol(comp,code,i)
-  }
-  :Compiler_c_code_block(comp,code,i){
-    :i:Compiler_parse_char(code,i,CURLY_BRACE_L)
-    ?~(get(code,i)=CURLY_BRACE_R){
-      :i:Compiler_c_statement(comp,code,i)
+  }:?is_word(c){
+    @ expression
+    :i:Compiler_c_expr(comp,code,i)
+    Compiler_append_op(comp,DROP)
+  }:?c=DOLLAR_SIGN{
+    @ return
+    :i:Compiler_c_expr(comp,code,i+1)
+    Compiler_append_op(comp,RETURN)
+  }:?c=EXCLAMATION_MARK{
+    @ throw
+    :i:Compiler_c_expr(comp,code,i+1)
+    Compiler_append_op(comp,THROW)
+  }:?c=AT_SIGN{
+    @ annotation
+    ?~(get(code,i)=NL){
+      :i:i+1
     }^
-    $i+1
+  }:{
+    @ empty line is valid
   }
-  :Compiler_compile(comp,code){
-    :i:0
-    :i:Compiler_c_args(comp,code,i)
-    :i:Compiler_c_code_block(comp,code,i)
-    $comp
+  ?Compiler_debug(comp)&(get(code,i)=NL){
+    Compiler_append_op(comp,NL)
   }
+  $Compiler_parse_eol(comp,code,i)
+}
+:Compiler_c_code_block(comp,code,i){
+  :i:Compiler_parse_char(code,i,CURLY_BRACE_L)
+  ?~(get(code,i)=CURLY_BRACE_R){
+    :i:Compiler_c_statement(comp,code,i)
+  }^
+  $i+1
+}
+:Compiler_compile(comp,code){
+  :i:0
+  :n:len(code)
+  ?i<n{
+    :i:Compiler_c_statement(comp,code,i)
+  }^
+  $comp
+}
 
-  @ Compiler | Initialization / Allocation
-  :Compiler_init(comp,debug){
-    set(comp,0,data(+7fff)) @ NOTE: biggest integer there is atm :)
-    set(comp,1,0)
-    set(comp,2,debug)
-    set(comp,3,Vector_append(Vector(1),array(100*4)))
-    $comp
-  }
-  :Compiler(debug){
-    $Compiler_init(array(4),debug)
-  }
+@ Compiler | Initialization / Allocation
+:Compiler_init(comp,debug){
+  set(comp,0,data(+7fff)) @ NOTE: biggest integer there is atm :)
+  set(comp,1,0)
+  set(comp,2,debug)
+  set(comp,3,Vector_append(Vector(1),array(100*4)))
+  $comp
+}
+:Compiler(debug){
+  $Compiler_init(array(4),debug)
+}
 
-  @
-  @ Entry Point(s)
-  @
-  :compile(debug){
-    $out(Compiler_jam_for_output(Compiler_compile(Compiler(debug),in())))
-  }
+@
+@ Entry Point(s)
+@
+:compile(debug){
+  $out(Compiler_jam_for_output(Compiler_compile(Compiler(debug),in())))
 }
