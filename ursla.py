@@ -456,13 +456,13 @@ class VM(object):
         ops[0x8d] = _get
         ops[0x8e] = _set
         ops[0x8f] = _copy
-        ops[0x92] = _load
-        ops[0x93] = _save
+        ops[0x90] = _load
+        ops[0x91] = _save
         # All these routines exist just to support data-from-file literal :(
         # Consider removing first three, in favor of manually encoding binary data
         # into resource files, then concat'ing source + resources before compilation.
-        ops[0x90] = _fin
-        ops[0x91] = _fout
+        ops[0x92] = _fin
+        ops[0x93] = _fout
         ops[0x94] = _b64
         ops[0x95] = _b64decode
         return ops

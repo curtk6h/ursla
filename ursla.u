@@ -25,10 +25,10 @@
 :get{ $\8d }
 :set{ $\8e }
 :copy{ $\8f }
-:fin{ $\90 }
-:fout{ $\91 }
-:load{ $\92 }
-:save{ $\93 }
+:load{ $\90 }
+:save{ $\91 }
+:fin{ $\92 }
+:fout{ $\93 }
 :b64{ $\94 }
 :b64decode{ $\95 }
 
