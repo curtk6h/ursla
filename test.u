@@ -176,7 +176,7 @@
   $copy(data(len(d)),d,0,0,len(d))
 }
 :dresize(d,n){
-  $copy(array(n),d,0,0,len(d))
+  $copy(data(n),d,0,0,len(d))
 }
 :dconcat(a,b){
   :c:data(len(a)+len(b))
