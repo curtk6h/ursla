@@ -17,20 +17,18 @@
 :out{ $\85 }
 :pack{ $\86 }
 :unpack{ $\87 }
-:min{ $\88 }
-:max{ $\89 }
-:data{ $\8a }
-:array{ $\8b }
-:len{ $\8c }
-:get{ $\8d }
-:set{ $\8e }
-:copy{ $\8f }
-:load{ $\90 }
-:save{ $\91 }
-:fin{ $\92 }
-:fout{ $\93 }
-:b64{ $\94 }
-:b64decode{ $\95 }
+:data{ $\88 }
+:array{ $\89 }
+:len{ $\8a }
+:get{ $\8b }
+:set{ $\8c }
+:copy{ $\8d }
+:load{ $\8e }
+:save{ $\8f }
+:fin{ $\90 }
+:fout{ $\91 }
+:b64{ $\92 }
+:b64decode{ $\93 }
 
 @ Stdlib | Misc Constants
 :EMPTY_DATA:""
@@ -113,6 +111,12 @@
     :i:i-1
   }^
   $d
+}
+:min(a,b){
+  ?a<b{ $a } $b
+}
+:max(a,b){
+  ?a>b{ $a } $b
 }
 :clamp(x,l,h){
   $min(max(x,l),h)
@@ -635,7 +639,7 @@
     :text:b64(fin(dchunk(code,i,j-i)))
     Compiler_append_op_w_short(comp,LOAD_STR,len(text))
     Compiler_append_text(comp,text,0,len(text))
-    Compiler_append_op_w_byte(comp,OP_BY_CODE,95)
+    Compiler_append_op_w_byte(comp,OP_BY_CODE,93)
     $j+1
   }
   @ operation-by-code (for defining built-ins)

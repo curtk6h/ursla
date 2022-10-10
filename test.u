@@ -14,20 +14,18 @@
 :out{ $\85 }
 :pack{ $\86 }
 :unpack{ $\87 }
-:min{ $\88 }
-:max{ $\89 }
-:data{ $\8a }
-:array{ $\8b }
-:len{ $\8c }
-:get{ $\8d }
-:set{ $\8e }
-:copy{ $\8f }
-:load{ $\90 }
-:save{ $\91 }
-:fin{ $\92 }
-:fout{ $\93 }
-:b64{ $\94 }
-:b64decode{ $\95 }
+:data{ $\88 }
+:array{ $\89 }
+:len{ $\8a }
+:get{ $\8b }
+:set{ $\8c }
+:copy{ $\8d }
+:load{ $\8e }
+:save{ $\8f }
+:fin{ $\90 }
+:fout{ $\91 }
+:b64{ $\92 }
+:b64decode{ $\93 }
 
 @ Stdlib | Misc Constants
 :EMPTY_DATA:""
@@ -109,6 +107,12 @@
     :i:i-1
   }^
   $d
+}
+:min(a,b){
+  ?b<a{ $b } $a
+}
+:max(a,b){
+  ?b>a{ $b } $a
 }
 :clamp(x,l,h){
   $min(max(x,l),h)
