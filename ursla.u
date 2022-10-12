@@ -436,73 +436,73 @@
 :Compiler_c_code_block
 
 @ Compiler | Getters / Setters
-:Compiler_jam(comp){ $get(comp,0) }
-:Compiler_jam_idx(comp){ $get(comp,1) }
-:Compiler_set_jam_idx(comp,i){ $set(comp,1,i) }
+:Compiler_ir(comp){ $get(comp,0) }
+:Compiler_ir_idx(comp){ $get(comp,1) }
+:Compiler_set_ir_idx(comp,i){ $set(comp,1,i) }
 :Compiler_debug(comp){ $get(comp,2) }
 :Compiler_vs(comp){ $get(comp,3) }
 :Compiler_gv(comp){ $Vector_get(get(comp,3),0) }
 :Compiler_lv(comp){ $Vector_last(get(comp,3)) }
 
-:Compiler_jam_for_output(comp){
-  $dchunk(Compiler_jam(comp),0,Compiler_jam_idx(comp))
+:Compiler_ir_for_output(comp){
+  $dchunk(Compiler_ir(comp),0,Compiler_ir_idx(comp))
 }
 
-@ Compiler | Jam Output
+@ Compiler | IR Output
 :Compiler_encode_byte(comp,i,x){
-  :jam:Compiler_jam(comp)
-  set(jam,i+0,hex_digit(unpack(x,+f0)))
-  set(jam,i+1,hex_digit(x&+f))
+  :ir:Compiler_ir(comp)
+  set(ir,i+0,hex_digit(unpack(x,+f0)))
+  set(ir,i+1,hex_digit(x&+f))
   $i+2
 }
 :Compiler_encode_short(comp,i,x){
-  :jam:Compiler_jam(comp)
-  set(jam,i+0,hex_digit(unpack(x,+f000)))
-  set(jam,i+1,hex_digit(unpack(x,+f00)))
-  set(jam,i+2,hex_digit(unpack(x,+f0)))
-  set(jam,i+3,hex_digit(x&+f))
+  :ir:Compiler_ir(comp)
+  set(ir,i+0,hex_digit(unpack(x,+f000)))
+  set(ir,i+1,hex_digit(unpack(x,+f00)))
+  set(ir,i+2,hex_digit(unpack(x,+f0)))
+  set(ir,i+3,hex_digit(x&+f))
   $i+4
 }
 :Compiler_append_op(comp,op){
-  :i:Compiler_jam_idx(comp)
-  set(Compiler_jam(comp),i,op)
-  $Compiler_set_jam_idx(comp,i+1)
+  :i:Compiler_ir_idx(comp)
+  set(Compiler_ir(comp),i,op)
+  $Compiler_set_ir_idx(comp,i+1)
 }
 :Compiler_append_op_w_byte(comp,op,x){
-  :i:Compiler_jam_idx(comp)
-  set(Compiler_jam(comp),i,op)
+  :i:Compiler_ir_idx(comp)
+  set(Compiler_ir(comp),i,op)
   :i:Compiler_encode_byte(comp,i+1,x)
-  $Compiler_set_jam_idx(comp,i)
+  $Compiler_set_ir_idx(comp,i)
 }
 :Compiler_append_op_w_short(comp,op,x){
-  :i:Compiler_jam_idx(comp)
-  set(Compiler_jam(comp),i,op)
+  :i:Compiler_ir_idx(comp)
+  set(Compiler_ir(comp),i,op)
   :i:Compiler_encode_short(comp,i+1,x)
-  $Compiler_set_jam_idx(comp,i)
+  $Compiler_set_ir_idx(comp,i)
 }
 :Compiler_append_text(comp,d,i,j){
-  :jam:Compiler_jam(comp)
-  :jam_i:Compiler_jam_idx(comp) 
+  :ir:Compiler_ir(comp)
+  :ir_i:Compiler_ir_idx(comp) 
   ?i<j{
-    set(jam,jam_i,get(d,i))
-    :jam_i:jam_i+1
+    set(ir,ir_i,get(d,i))
+    :ir_i:ir_i+1
     :i:i+1
   }^
-  $Compiler_set_jam_idx(comp,jam_i)
+  $Compiler_set_ir_idx(comp,ir_i)
 }
 :Compiler_append_op_w_addr:Compiler_append_op_w_short
 :Compiler_swap_chunks(comp,ai,aj,bi,bj){
   @ swap chunks a and b, preserving the data between them
-  :jam:Compiler_jam(comp)
-  :jam_n:Compiler_jam_idx(comp)
+  :ir:Compiler_ir(comp)
+  :ir_n:Compiler_ir_idx(comp)
   :an:aj-ai
   :bn:bj-bi
   :cn:bj-ai
   :swapped_chunk:data(cn)
-  copy(swapped_chunk,jam,0,bi,bn)
-  copy(swapped_chunk,jam,bn,aj,bi-aj)
-  copy(swapped_chunk,jam,bj-aj,ai,an)
-  copy(jam,swapped_chunk,ai,0,cn)
+  copy(swapped_chunk,ir,0,bi,bn)
+  copy(swapped_chunk,ir,bn,aj,bi-aj)
+  copy(swapped_chunk,ir,bj-aj,ai,an)
+  copy(ir,swapped_chunk,ai,0,cn)
   $comp
 }
 :Compiler_throw_syntax_err(code,i,msg){
@@ -659,12 +659,12 @@
     :i:i+1
   }
   @ operand
-  :operand_start:Compiler_jam_idx(comp)
+  :operand_start:Compiler_ir_idx(comp)
   :i:Compiler_c_operand(comp,code,i)
   @ post operators (ie. function call)
   ?get(code,i)=PAREN_L{
     :i:i+1
-    :args_start:Compiler_jam_idx(comp)
+    :args_start:Compiler_ir_idx(comp)
     ?~(get(code,i)=PAREN_R){
       :i:Compiler_c_expr(comp,code,i)
       ?get(code,i)=COMMA{
@@ -672,7 +672,7 @@
       }
     }^
     :i:i+1 @ consume )
-    Compiler_swap_chunks(comp,operand_start,args_start,args_start,Compiler_jam_idx(comp))
+    Compiler_swap_chunks(comp,operand_start,args_start,args_start,Compiler_ir_idx(comp))
     Compiler_append_op(comp,CALL)
   }^
   @ apply pre operator
@@ -718,14 +718,14 @@
   ?c=QUESTION_MARK{
     @ if / while / try
     ?get(code,i+1)=CURLY_BRACE_L{
-      :here:Compiler_jam_idx(comp)
+      :here:Compiler_ir_idx(comp)
       Compiler_append_op_w_addr(comp,TRY,0)
       :i:Compiler_c_code_block(comp,code,i+1)
       Compiler_append_op(comp,END_TRY)
     }:{
-      :top:Compiler_jam_idx(comp)
+      :top:Compiler_ir_idx(comp)
       :i:Compiler_c_expr(comp,code,i+1)
-      :here:Compiler_jam_idx(comp)
+      :here:Compiler_ir_idx(comp)
       Compiler_append_op_w_addr(comp,JUMP_IF_ZERO,0)
       :i:Compiler_c_code_block(comp,code,i)
     }
@@ -733,15 +733,15 @@
       ?get(code,i)=COLON{
         :there:here
         :i:i+1
-        :here:Compiler_jam_idx(comp)
+        :here:Compiler_ir_idx(comp)
         Compiler_append_op_w_addr(comp,JUMP,0)
-        Compiler_encode_short(comp,there+1,Compiler_jam_idx(comp))
+        Compiler_encode_short(comp,there+1,Compiler_ir_idx(comp))
         ?get(code,i)=QUESTION_MARK{
           :i:Compiler_c_expr(comp,code,i+1)
-          :there:Compiler_jam_idx(comp)
+          :there:Compiler_ir_idx(comp)
           Compiler_append_op_w_addr(comp,JUMP_IF_ZERO,0)
           :i:Compiler_c_code_block(comp,code,i)
-          Compiler_encode_short(comp,here+1,Compiler_jam_idx(comp))
+          Compiler_encode_short(comp,here+1,Compiler_ir_idx(comp))
           :here:there
         }:{
           :i:Compiler_c_code_block(comp,code,i)
@@ -751,7 +751,7 @@
       :i:i+1
       Compiler_append_op_w_addr(comp,JUMP,top)
     }
-    Compiler_encode_short(comp,here+1,Compiler_jam_idx(comp))
+    Compiler_encode_short(comp,here+1,Compiler_ir_idx(comp))
   }:?c=COLON{
     @ function or variable assignment
     :i:Compiler_parse_symbol(comp,code,i+1)
@@ -789,14 +789,14 @@
       }:{
         @ function definition
         :vs:Compiler_vs(comp)
-        :top:Compiler_jam_idx(comp)
+        :top:Compiler_ir_idx(comp)
         Compiler_append_op_w_addr(comp,JUMP,0)
         :fv:array(100)
         Vector_append(vs,fv)
         :i:Compiler_c_args(comp,code,i)
         :i:Compiler_c_code_block(comp,code,i)
         Vector_pop(vs)
-        Compiler_encode_short(comp,top+1,Compiler_jam_idx(comp))
+        Compiler_encode_short(comp,top+1,Compiler_ir_idx(comp))
         Compiler_append_op_w_addr(comp,LOAD_FUNC,top+5)
       }
       ?gi=NIL{
@@ -862,5 +862,5 @@
 @ Entry Point(s)
 @
 :compile(debug){
-  $out(Compiler_jam_for_output(Compiler_compile(Compiler(debug),in())))
+  $out(Compiler_ir_for_output(Compiler_compile(Compiler(debug),in())))
 }
