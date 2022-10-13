@@ -90,10 +90,10 @@ out(fibonacci_sequence(10))
 | `(...)` | expression group |
 | `:x` | declare variable |
 | `:x:y` | set variable |
-| `:x{ ... }` | function |
-| `:x(a,b,c){ ... }` | function with arguments |
-| `$x` | return from call |
-| `x(a,b,c)` | call |
+| `:x{ ... }` | function definition |
+| `:x(a,b,c){ ... }` | function definition with arguments |
+| `$x` | return from function call |
+| `x(a,b,c)` | function call |
 | `x&y`, `x\|y`, `x^y`, `~x` | logical operations |
 | `x<y`, `x>y`, `x=y` | comparison operations |
 | `x+y`, `x-y`, `x*y`, `x/y`, `x%y`, `-x` | arithmetic operations |
@@ -106,22 +106,18 @@ out(fibonacci_sequence(10))
 | `weak(x)` | get an untracked reference to x, to avoid circular references that simple reference counting can't handle |
 | `hash(x)` | get hash code for x |
 | `time()` | get milliseconds elapsed since start of program |
-| `in()` | read full input as data |
+| `in()` | read input as data |
 | `out(x)` | write text representation of x to output |
 | `pack(x,y,m)` | pack masked bits from y into x, at mask position |
 | `unpack(x,m)` | unpack masked bits from x |
-| `data(n)` | allocate data of length n
+| `data(n)` | allocate data (bytes) of length n
 | `array(n)` | allocate array of length n
 | `len(x)` | get length of data/array x |
-| `get(x,i)` | get element at position i from data/array x |
-| `set(x,i,y)` | set element at position i from data/array x, to y |
+| `get(x,i)` | get element at position i in data/array x |
+| `set(x,i,y)` | set element at position i in data/array x, to y |
 | `copy(x,y,xi,yi,n)` | copy elements from data/array y to x |
 | `load(k)` | load data from persistent storage |
 | `save(k,x)` | save data to persistent storage |
-| `fin(f)` | read data from file |
-| `fout(f,x)` | write data to file |
-| `b64(x)` | encode data as base64 |
-| `b64decode(x)` | decode data from base64 |
 
 ## Is there any practical reason to use this language?
 
