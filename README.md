@@ -1,16 +1,16 @@
 # Ursla (UniveRsally Shitty LAnguage)
 
-A dirt simple language that's easy to understand and interpret.
+A dirt simple scripting language, meant to be a toy and not much more.
 
 ## They aren't defects, they're features!
 
 * NO bloat
 
-    *With extremely limited syntax and built-in functionality, it's incredibly lightweight and staightforward to implement in an actual programming language. Also, the compiler for Ursla is written in Ursla, so no additional porting is required.*
+    *With extremely limited syntax and built-in functionality, it's incredibly lightweight and staightforward to implement in a real programming language. Also, the compiler for Ursla is written in Ursla, so no additional porting is required.*
 
 * NO tokenizing / NO syntax trees / NO safety nets
 
-    *By having only single character operators, there's little need for tokenizing code as a first step. Also, the grammar was designed to be easy to compile and only requires a lookahead in one or two spots.*
+    *By having only single character operators, there's little need for tokenizing code as a first step. Also, the grammar was designed to be easy to compile (by hand, without a compiler compiler) and only requires a lookahead in one or two spots.*
 
 * NO "short circuiting" of logical expressions
 
@@ -32,7 +32,7 @@ A dirt simple language that's easy to understand and interpret.
 
     *Who needs 'em when you have fun and completely unenforced coding patterns.*
 
-* NO for-loops or other super useful syntaxes/constructs that are widely offered, loved, and depended on
+* NO for-loops or other super useful constructs that are widely offered, loved, and depended on
 
     *Why would I bother to implement these things when there aren't even base-10 numbers.*
 
@@ -84,7 +84,7 @@ out(fibonacci_sequence(10))
 | `?{ !x }:{ !x ... }` | try throw catch |
 | `+ff`, `100`, `-1` | integer literal (hexadecimal)|
 | `"hello world"` | ascii data literal |
-| `[backtick]foo.png[backtick]` | file data literal |
+| `` `foo.png` `` | file data literal |
 | `,x,y,z` | array literal |
 | `\80` | built-in operation by code|
 | `(...)` | expression group |
@@ -119,6 +119,3 @@ out(fibonacci_sequence(10))
 | `load(k)` | load data from persistent storage |
 | `save(k,x)` | save data to persistent storage |
 
-## Is there any practical reason to use this language?
-
-Nope! Ursla is meant to be a toy and work-of-art and not much more.
