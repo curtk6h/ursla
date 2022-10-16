@@ -18,6 +18,9 @@ def int16(value):
 def uint16(value):
     return value & 0xFFFF
 
+class VMStop(Exception):
+    pass
+
 class VMError(Exception):
     pass
 
@@ -47,17 +50,16 @@ class VM(object):
         try:
             while True:
                 i = exec_ops[i](i)
+        except VMStop:
+            # do not update frame_stack[-1] or subsequent calls to
+            # execute() will result in out-of-bounds error
+            pass
         except VMError:
             self.frame_stack[-1] = i
             raise
         except Exception as e:
-            self.frame_stack[-1] = i  # must happen here so not to throw off line trace
-            # This is a super hacky and will wrongly consider "actual"
-            # IndexErrors as a clean exit, but I don't really care!
-            # It allows for no test in main loop and no extra logic
-            # in any operation (ie. return) to eke out even more performance!
-            if not isinstance(e, IndexError):
-                raise InternalVMError(self.err_line_trace(line_exec_indices)) from e
+            self.frame_stack[-1] = i  # must happen here to not throw off line trace
+            raise InternalVMError(self.err_line_trace(line_exec_indices)) from e
 
     def compile_exec_op_list(self, ir, tune=True):
         exec_opcodes, exec_args, line_exec_indices = \
@@ -70,7 +72,7 @@ class VM(object):
     def _compile_exec_set(ir, tune=True):
         line_exec_indices = [0]
         ips_to_exec_indices = {}
-        exec_opcodes = array.array('B', (0 for _ in ir))
+        exec_opcodes = array.array('B', (0 for _ in range(len(ir)+1)))
         exec_args = [None] * len(ir)
         exec_index = 0
         ip = 0
@@ -104,6 +106,14 @@ class VM(object):
             else:
                 pass # no args is okay too
             exec_index += 1
+
+        # Append final stop command
+        exec_opcodes[exec_index] = ord('S')
+        exec_index += 1
+
+        # Trim excess
+        del exec_opcodes[exec_index:]
+        del exec_args[exec_index:]
 
         # Remap address references
         for i, op in enumerate(exec_opcodes):
@@ -151,10 +161,6 @@ class VM(object):
                         break
                 else:
                     i += 1
-
-        # Trim excess
-        del exec_opcodes[exec_index:]
-        del exec_args[exec_index:]
 
         return exec_opcodes, exec_args, line_exec_indices
 
@@ -310,6 +316,8 @@ class VM(object):
             del os[operand_n:]
             os.append(err)
             return j
+        def _stop(i):
+            raise VMStop()
         # Built-in functions
         def _is(i):
             os[-1] = -1 if os[-2] is os.pop() else 0
@@ -434,6 +442,7 @@ class VM(object):
         ops[ord('t')] = _try
         ops[ord('T')] = _end_try
         ops[ord('!')] = _throw
+        ops[ord('S')] = _stop
         # Compound operations (from performance tuning)
         ops[0x10] = _jump_func_direct
         ops[0x11] = _increment_local
